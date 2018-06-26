@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- 上述3个meta标签*必须*放在最前面，任何其他内容都*必须*跟随其后！ -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <script src="/static/jquery.min.js"></script>
+    <script src="/static/bootstrap.min.js"></script>
+    <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+    <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <script>
+        $(document).ready(function(){
+            $("#select_building").click(function(){
+                //获取选择的楼栋
+                building_name=$("#building_selected option:selected").val();
+                //获取楼栋数据并输出一个表格
+                $.getJSON("/api/building/"+building_name,function(data){
+                    table_html="";
+                    console.log(data);
+	                for(var sw in data){
+	                    if(data[sw].down_time!='在线' && data[sw].down_time!='等待获取'){
+                            data[sw].down_time="掉线时间 "+ getLocalTime(data[sw].down_time);
+	                    }
+	                    if(data[sw].info_time!='等待获取'){
+                            data[sw].info_time=getLocalTime(data[sw].info_time);
+	                    }
+	                    if(data[sw].up_time!='等待获取'){
+	                        up_time_string=data[sw].up_time.split(':');
+	                        data[sw].up_time=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+up_time_string[3]+"秒";
+	                    }
+	                    table_html+="<tr><td><a href='/devices?ip="+data[sw].ip+"' target='_blank'>"+data[sw].ip+"</a></td><td>"+data[sw].name+"</td><td>"+data[sw].down_time+"</td><td>"+data[sw].up_time+"</td><td>"+data[sw].model+"</td><td>"+data[sw].cpu_load+"</td><td>"+data[sw].mem_used+"</td><td>"+data[sw].temp+"</td><td>"+data[sw].desc+"</td><td>"+data[sw].info_time+"</td></tr>";
+	                }
+	                $("#switch_info_tbody").html(table_html);
+                });
+            });
+            $("#select_ip").click(function(){
+                //获取选择的IP
+                ip=$("#ip_selected").val();
+                //打开页面
+                window.location.href="/devices?ip="+ip;
+            });
+        });
+
+        function getLocalTime(t) {
+            var date = new Date(t*1000);
+            Y = date.getFullYear() + '-';
+            M = (date.getMonth()+1 < 10 ? '0'+(date.getMonth()+1) : date.getMonth()+1) + '-';
+            D = date.getDate() + ' ';
+            h = date.getHours() + ':';
+            m = date.getMinutes() + ':';
+            s = date.getSeconds();
+            return Y+M+D+h+m+s;
+        }
+
+    </script>
+
+    <title>广工大交换机监控</title>
+
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="header clearfix">
+        <nav>
+            <ul class="nav nav-pills pull-right">
+                <li><a href="/">首页</a></li>
+                <li class="active"><a href="/buildings">设备</a></li>
+                <li><a href="/ports">端口</a></li>
+                <li><a href="/settings">设置</a></li>
+                <!--<li><a href="#">帮助</a></li>-->
+                <li><a href="/logout">注销</a></li>
+            </ul>
+        </nav>
+        <h3 class="text-muted">广工大交换机监控</h3>
+    </div>
+
+    <h2 class="page-header">设备</h2>
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <div class="row">
+                <h3>
+                    <label class="label label-default">区域选择</label>
+                    <select name="building" class="input-sm" id="building_selected">
+                        {{options|safe}}
+                    </select>
+                    <button class="btn btn-sm btn-primary" id="select_building">确定/刷新</button>
+                    <label class="label label-default">直接选择设备IP</label>
+                    <input type="text" id="ip_selected" style="width:120px;" class=""></input>
+                    <button class="btn btn-sm btn-default" id="select_ip">确定</button>
+                </h3>
+            </div>
+
+            <div class="row">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th>交换机IP</th>
+                            <th>交换机名字</th>
+                            <th>状态</th>
+                            <th>在线时长</th>
+                            <th>型号</th>
+                            <th>CPU使用率</th>
+                            <th>内存使用率</th>
+                            <th>温度</th>
+                            <th>描述</th>
+                            <th>数据获取时间</th>
+                        </tr>
+                        </thead>
+                        <tbody id="switch_info_tbody">
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+
+</body>
+</html>
+<style type="text/css">
+
+body {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.header,
+.marketing,
+.footer {
+  padding-right: 15px;
+  padding-left: 15px;
+}
+
+
+.header {
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.header h3 {
+  margin-top: 0;
+  margin-bottom: 0;
+  line-height: 40px;
+}
+
+
+.footer {
+  padding-top: 19px;
+  color: #777;
+  border-top: 1px solid #e5e5e5;
+}
+
+.container-narrow > hr {
+  margin: 30px 0;
+}
+
+/* Responsive: Portrait tablets and up */
+@media screen and (min-width: 768px) {
+  /* Remove the padding we set earlier */
+  .header,
+  .footer {
+    padding-right: 0;
+    padding-left: 0;
+  }
+  /* Space out the masthead */
+  .header {
+    margin-bottom: 30px;
+  }
+}
+
+
+
+
+</style>

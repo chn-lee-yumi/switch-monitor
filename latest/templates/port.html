@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- 上述3个meta标签*必须*放在最前面，任何其他内容都*必须*跟随其后！ -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <script src="/static/jquery.min.js"></script>
+    <script src="/static/bootstrap.min.js"></script>
+    <link href="/static/bootstrap.min.css" rel="stylesheet">
+    <script src="/static/echarts.min.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+    <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script>
+
+        var LocString = String(window.document.location.href);
+        function getQueryStr(str) {
+            var rs = new RegExp("(^|)" + str + "=([^&]*)(&|$)", "gi").exec(LocString), tmp;
+            if (tmp = rs) {
+                return tmp[2];
+            }
+            // parameter cannot be found
+            return "";
+        }
+        var port=getQueryStr("port");
+
+        var speed_multiple=1;
+        var selected='Bytes/s';
+        $(document).ready(function(){
+            $("#unit_selected").change(function(){
+               selected=$(this).children('option:selected').val();
+               //alert(selected);
+               if(selected=="Gbps"){
+                   $("#in_all").text("入方向总流量(GB)");
+                   $("#out_all").text("出方向总流量(GB)");
+                   $("#in_speed").text("入方向流量速率(Gbps)");
+                   $("#out_speed").text("出方向流量速率(Gbps)");
+                   speed_multiple=8/(1024*1024*1024);
+               }else if(selected=="Mbps"){
+                   $("#in_all").text("入方向总流量(MB)");
+                   $("#out_all").text("出方向总流量(MB)");
+                   $("#in_speed").text("入方向流量速率(Mbps)");
+                   $("#out_speed").text("出方向流量速率(Mbps)");
+                   speed_multiple=8/(1024*1024);
+               }else if(selected=="Kbps"){
+                   $("#in_all").text("入方向总流量(KB)");
+                   $("#out_all").text("出方向总流量(KB)");
+                   $("#in_speed").text("入方向流量速率(Kbps)");
+                   $("#out_speed").text("出方向流量速率(Kbps)");
+                   speed_multiple=8/(1024);
+               }else if(selected=="bps"){
+                   $("#in_all").text("入方向总流量(Bytes)");
+                   $("#out_all").text("出方向总流量(Bytes)");
+                   $("#in_speed").text("入方向流量速率(bps)");
+                   $("#out_speed").text("出方向流量速率(bps)");
+                   speed_multiple=8;
+               }else if(selected=="GB/s"){
+                   $("#in_all").text("入方向总流量(GB)");
+                   $("#out_all").text("出方向总流量(GB)");
+                   $("#in_speed").text("入方向流量速率(GB/s)");
+                   $("#out_speed").text("出方向流量速率(GB/s)");
+                   speed_multiple=1/(1024*1024*1024);
+               }else if(selected=="MB/s"){
+                   $("#in_all").text("入方向总流量(MB)");
+                   $("#out_all").text("出方向总流量(MB)");
+                   $("#in_speed").text("入方向流量速率(MB/s)");
+                   $("#out_speed").text("出方向流量速率(MB/s)");
+                   speed_multiple=1/(1024*1024);
+               }else if(selected=="KB/s"){
+                   $("#in_all").text("入方向总流量(KB)");
+                   $("#out_all").text("出方向总流量(KB)");
+                   $("#in_speed").text("入方向流量速率(KB/s)");
+                   $("#out_speed").text("出方向流量速率(KB/s)");
+                   speed_multiple=1/(1024);
+               }else if(selected=="Byte/s"){
+                   $("#in_all").text("入方向总流量(Bytes)");
+                   $("#out_all").text("出方向总流量(Bytes)");
+                   $("#in_speed").text("入方向流量速率(Bytes/s)");
+                   $("#out_speed").text("出方向流量速率(Bytes/s)");
+                   speed_multiple=1;
+               }
+               refresh_page();
+            });
+            $("#port").text(port.replace(/_/,'\/').replace(/_/,'\/'));//不知道为什么只replace一次的时候只有一个下划线被转换
+            chart_history = echarts.init(document.getElementById('chart_history'));
+            setInterval(refresh_page, 180000);//3分钟刷新一次
+            refresh_page();
+        });
+
+        function refresh_page(){
+            //*******************************获取历史数据并显示图表*******************************
+            $.getJSON("/api/flow_history/"+port,function(data){
+                console.log(data);
+                var in_speed=[];
+                var out_speed=[];
+                var timeline=new Array();
+                for(timestamp in data){
+                    timeline.push(timestamp*1000);
+                    in_speed.push({value:[timestamp*1000,(data[timestamp]['in']*speed_multiple).toFixed(4)]});
+                    out_speed.push({value:[timestamp*1000,(data[timestamp]['out']*speed_multiple).toFixed(4)]});
+                };
+                option = {
+                    title: {
+                        text: '端口速率',
+                        textStyle: {
+                            color: '#235894'
+                        },
+                    },
+                    legend: {
+                        data:['流入速率','流出速率']
+                    },
+                    tooltip : {
+                        trigger: 'axis'
+                    },
+                    toolbox : {
+                        show: true,
+                        right: '4%',
+                        feature: {
+                            dataZoom: {},
+                            restore: {},
+                            saveAsImage: {}
+                        }
+                    },
+                    grid: {
+                        left: '2%',
+                        right: '5%',
+                        bottom: '2%',
+                        containLabel: true
+                    },
+                    xAxis : [
+                        {
+                            type : 'time',
+                            name : '时间'
+                        }
+                    ],
+                    yAxis : [
+                        {
+                            type : 'value',
+                            name : selected,
+                        },
+                    ],
+                    series : [
+                        {
+                            name:'流入速率',
+                            type:'line',
+                            data:in_speed,
+                            showSymbol: false
+                        },
+                        {
+                            name:'流出速率',
+                            type:'line',
+                            data:out_speed,
+                            showSymbol: false
+                        }
+                    ]
+                };
+                chart_history.setOption(option);
+            });
+        };
+
+    </script>
+
+    <title>广工大交换机监控</title>
+
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+        <h2 class="form-search-heading">端口历史流量速率信息</h2>
+    </div>
+
+    <div class="row">
+        <h3 id="port"></h3>
+    </div>
+
+    <div class="row">
+        <div class="col-sm-12 col-xm-12">
+            <div id="chart_history" style="width:100%;height:600px;float:left;"></div>
+        </div>
+    </div>
+
+    <h4><span>速率单位：</span>
+        <select name="unit" class="input-sm" id="unit_selected">
+            <option value="Gbps">Gbps</option>
+            <option value="Mbps">Mbps</option>
+            <option value="Kbps">Kbps</option>
+            <option value="bps">bps</option>
+            <option value="GB/s">GB/s</option>
+            <option value="MB/s">MB/s</option>
+            <option value="KB/s">KB/s</option>
+            <option value="Byte/s" selected="selected">Byte/s</option>
+        </select>
+        <span> 页面自动更新间隔：3分钟</span>
+    </h4>
+
+</div>
+
+</body>
+</html>
+<style type="text/css">
+.container-fluid {
+  margin: 5px 5px 30px 30px;
+}
+</style>

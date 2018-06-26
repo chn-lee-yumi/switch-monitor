@@ -2,6 +2,8 @@
 import telnetlib
 import time
 import traceback
+import mod_snmp
+
 
 '''
 该模块用于重启交换机
@@ -13,7 +15,7 @@ ips为需重启交换机IP的list，如["172.16.101.1","172.16.101.2"]
 switch_password = "123456"  # 密码
 
 
-def reboot_switch(ip):
+def reboot_switch_telnet(ip):
     try:
         # 连接Telnet服务器
         print('Connecting', ip, '...')
@@ -54,9 +56,16 @@ def reboot_switch(ip):
         a = traceback.format_exc()
         print(a[a.find('Error:') + 7:])
 
+def reboot_switch_snmp(ip):
+    a=mod_snmp.SnmpSet(ip,'S2700',"reboot")# E152B不支持SNMP重启（我没找到MIB节点）
+    # print("重启交换机",ip,a)
+    return 0
+
 def reboot_switches(ips):
     for ip in ips:
-        reboot_switch(ip)
+        reboot_switch_snmp(ip)
+        #reboot_switch_telnet(ip)
+
 
 '''
 <D2_4F_H2_E152B_1>reboot

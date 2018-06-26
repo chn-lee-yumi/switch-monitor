@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- 上述3个meta标签*必须*放在最前面，任何其他内容都*必须*跟随其后！ -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <script src="/static/jquery.min.js"></script>
+    <script src="/static/bootstrap.min.js"></script>
+    <link href="/static/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+    <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script>
+        $(document).ready(function(){
+            $.getJSON("/api/ports",function(data){
+                table_html="";
+                console.log(data);
+                for(var port in data){
+                    d=data[port].split(",");
+                    table_html+="<tr><td>"+d[0]+"</td><td><a href='/port?port="+data[port].replace(/\//g, '_')+"' target='_blank'>"+d[1]+"</a></td></tr>";
+                }
+                $("#port_info_tbody").html(table_html);
+            });
+        });
+    </script>
+
+    <title>广工大交换机监控</title>
+</head>
+<body>
+
+</body>
+</html>
+
+<div class="container-fluid">
+    <div class="header clearfix">
+        <nav>
+            <ul class="nav nav-pills pull-right">
+                <li><a href="/">首页</a></li>
+                <li><a href="/buildings">设备</a></li>
+                <li class="active"><a href="/ports">端口</a></li>
+                <li><a href="/settings">设置</a></li>
+                <!--<li><a href="#">帮助</a></li>-->
+                <li><a href="/logout">注销</a></li>
+            </ul>
+        </nav>
+        <h3 class="text-muted">广工大交换机监控</h3>
+    </div>
+
+    <h2 class="page-header">端口流量速率监控</h2>
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <div class="row">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th>交换机IP</th>
+                            <th>交换机端口</th>
+                        </tr>
+                        </thead>
+                        <tbody id="port_info_tbody">
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+
+</body>
+</html>
+
+<style type="text/css">
+
+body {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.header,
+.marketing,
+.footer {
+  padding-right: 15px;
+  padding-left: 15px;
+}
+
+
+.header {
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.header h3 {
+  margin-top: 0;
+  margin-bottom: 0;
+  line-height: 40px;
+}
+
+
+.footer {
+  padding-top: 19px;
+  color: #777;
+  border-top: 1px solid #e5e5e5;
+}
+
+.container-narrow > hr {
+  margin: 30px 0;
+}
+
+/* Responsive: Portrait tablets and up */
+@media screen and (min-width: 768px) {
+  /* Remove the padding we set earlier */
+  .header,
+  .footer {
+    padding-right: 0;
+    padding-left: 0;
+  }
+  /* Space out the masthead */
+  .header {
+    margin-bottom: 30px;
+  }
+}
+
+</style>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- 上述3个meta标签*必须*放在最前面，任何其他内容都*必须*跟随其后！ -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <script src="/static/jquery.min.js"></script>
+    <script src="/static/bootstrap.min.js"></script>
+    <link href="/static/bootstrap.min.css" rel="stylesheet">
+    <script src="/static/echarts.min.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+    <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script>
+
+        var LocString = String(window.document.location.href);
+        function getQueryStr(str) {
+            var rs = new RegExp("(^|)" + str + "=([^&]*)(&|$)", "gi").exec(LocString), tmp;
+            if (tmp = rs) {
+                return tmp[2];
+            }
+            // parameter cannot be found
+            return "";
+        }
+        var ip=getQueryStr("ip");
+
+        var all_multiple=1;
+        var speed_multiple=1;
+        $(document).ready(function(){
+            $("#ip").text(ip);
+            chart_history = echarts.init(document.getElementById('chart_history'));
+            setInterval(refresh_page, 180000);//3分钟刷新一次
+            refresh_page();
+            $("#unit_selected").change(function(){
+               var selected=$(this).children('option:selected').val();
+               //alert(selected);
+               if(selected=="Gbps"){
+                   $("#in_all").text("入方向总流量(GB)");
+                   $("#out_all").text("出方向总流量(GB)");
+                   $("#in_speed").text("入方向流量速率(Gbps)");
+                   $("#out_speed").text("出方向流量速率(Gbps)");
+                   all_multiple=1/(1024*1024*1024);
+                   speed_multiple=8/(1024*1024*1024);
+               }else if(selected=="Mbps"){
+                   $("#in_all").text("入方向总流量(MB)");
+                   $("#out_all").text("出方向总流量(MB)");
+                   $("#in_speed").text("入方向流量速率(Mbps)");
+                   $("#out_speed").text("出方向流量速率(Mbps)");
+                   all_multiple=1/(1024*1024);
+                   speed_multiple=8/(1024*1024);
+               }else if(selected=="Kbps"){
+                   $("#in_all").text("入方向总流量(KB)");
+                   $("#out_all").text("出方向总流量(KB)");
+                   $("#in_speed").text("入方向流量速率(Kbps)");
+                   $("#out_speed").text("出方向流量速率(Kbps)");
+                   all_multiple=1/(1024);
+                   speed_multiple=8/(1024);
+               }else if(selected=="bps"){
+                   $("#in_all").text("入方向总流量(Bytes)");
+                   $("#out_all").text("出方向总流量(Bytes)");
+                   $("#in_speed").text("入方向流量速率(bps)");
+                   $("#out_speed").text("出方向流量速率(bps)");
+                   all_multiple=1;
+                   speed_multiple=8;
+               }else if(selected=="GB/s"){
+                   $("#in_all").text("入方向总流量(GB)");
+                   $("#out_all").text("出方向总流量(GB)");
+                   $("#in_speed").text("入方向流量速率(GB/s)");
+                   $("#out_speed").text("出方向流量速率(GB/s)");
+                   all_multiple=1/(1024*1024*1024);
+                   speed_multiple=1/(1024*1024*1024);
+               }else if(selected=="MB/s"){
+                   $("#in_all").text("入方向总流量(MB)");
+                   $("#out_all").text("出方向总流量(MB)");
+                   $("#in_speed").text("入方向流量速率(MB/s)");
+                   $("#out_speed").text("出方向流量速率(MB/s)");
+                   all_multiple=1/(1024*1024);
+                   speed_multiple=1/(1024*1024);
+               }else if(selected=="KB/s"){
+                   $("#in_all").text("入方向总流量(KB)");
+                   $("#out_all").text("出方向总流量(KB)");
+                   $("#in_speed").text("入方向流量速率(KB/s)");
+                   $("#out_speed").text("出方向流量速率(KB/s)");
+                   all_multiple=1/(1024);
+                   speed_multiple=1/(1024);
+               }else if(selected=="Byte/s"){
+                   $("#in_all").text("入方向总流量(Bytes)");
+                   $("#out_all").text("出方向总流量(Bytes)");
+                   $("#in_speed").text("入方向流量速率(Bytes/s)");
+                   $("#out_speed").text("出方向流量速率(Bytes/s)");
+                   all_multiple=1;
+                   speed_multiple=1;
+               }
+               refresh_table();
+           });
+        });
+
+        var port_datas;
+        function refresh_table(){
+            data=$.extend(true , {} , port_datas);//jquery copy
+            //console.log(data);
+            table_html="";
+            up_time_string="";
+            for(var sw in data["if_descr"]){
+                if_status=data["if_status"][sw];
+                if(if_status=="1"){
+                    if_status="UP";
+                }else if(if_status=="2"){
+                    if_status="DOWN";
+                }
+                if(if_status=="1"){
+                    if_status="UP";
+                }else if(if_status=="2"){
+                    if_status="DOWN";
+                }
+                up_time_string=data["if_uptime"][sw].split(':');
+                data["if_uptime"][sw]=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+up_time_string[3]+"秒";
+                table_html+="<tr><td>"+data["if_name"][sw]+"</td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+(data["if_in"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_out"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple).toFixed(4)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple).toFixed(4)+"</td></tr>";
+            }
+            $("#switch_info_tbody").html(table_html);
+        }
+
+        function refresh_page(){
+            $.getJSON("/api/devices/"+ip,function(data){
+                table_html="";
+                console.log(data);
+                port_datas=data;
+                refresh_table();
+            });
+
+            //*******************************获取历史数据并显示图表*******************************
+            $.getJSON("/api/history/"+ip,function(data){ //"/test.json"
+                console.log(data);
+                var cpu_his=[];
+                var mem_his=[];
+                var temp_his=[];
+                var timeline=new Array();
+                for(timestamp in data){
+                    timeline.push(timestamp*1000);
+                    cpu_his.push({value:[timestamp*1000,data[timestamp]['cpu']]});
+                    mem_his.push({value:[timestamp*1000,data[timestamp]['mem']]});
+                    temp_his.push({value:[timestamp*1000,data[timestamp]['temp']]});
+                };
+                option = {
+                    title: {
+                        text: 'CPU、内存使用率、温度历史',
+                        textStyle: {
+                            color: '#235894'
+                        },
+                    },
+                    legend: {
+                        data:['CPU使用率','内存使用率','温度']
+                    },
+                    tooltip : {
+                        trigger: 'axis'
+                    },
+                    toolbox : {
+                        show: true,
+                        right: '4%',
+                        feature: {
+                            dataZoom: {},
+                            restore: {},
+                            saveAsImage: {}
+                        }
+                    },
+                    grid: {
+                        left: '2%',
+                        right: '5%',
+                        bottom: '2%',
+                        containLabel: true
+                    },
+                    xAxis : [
+                        {
+                            type : 'time',
+                            name : '时间'
+                        }
+                    ],
+                    yAxis : [
+                        {
+                            type : 'value',
+                            name : '使用率',
+                            min : 0,
+                            max : 100
+                        },
+                        {
+                            type : 'value',
+                            name : '温度',
+                            max : 100
+                        }
+                    ],
+                    series : [
+                        {
+                            name:'CPU使用率',
+                            type:'line',
+                            data:cpu_his,
+                            showSymbol: false
+                        },
+                        {
+                            name:'内存使用率',
+                            type:'line',
+                            data:mem_his,
+                            showSymbol: false
+                        },
+                        {
+                            name:'温度',
+                            type:'line',
+                            yAxisIndex: 1,
+                            data:temp_his,
+                            showSymbol: false
+                        }
+                    ]
+                };
+                chart_history.setOption(option);
+            });
+        };
+
+
+    </script>
+
+    <title>广工大交换机监控</title>
+
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+        <h2 class="form-search-heading">设备详细信息</h2>
+    </div>
+
+    <div class="row">
+        <h3 id="ip"></h3>
+    </div>
+
+    <div class="row">
+        <div class="col-sm-12 col-xm-12">
+            <div id="chart_history" style="width:100%;height:250px;float:left;"></div>
+        </div>
+    </div>
+
+    <div class="row">
+        <h4><span>速率单位：</span>
+            <select name="unit" class="input-sm" id="unit_selected">
+                <option value="Gbps">Gbps</option>
+                <option value="Mbps">Mbps</option>
+                <option value="Kbps">Kbps</option>
+                <option value="bps">bps</option>
+                <option value="GB/s">GB/s</option>
+                <option value="MB/s">MB/s</option>
+                <option value="KB/s">KB/s</option>
+                <option value="Byte/s" selected="selected">Byte/s</option>
+            </select>
+            <span> 页面自动更新间隔：3分钟</span>
+        </h4>
+    </div>
+
+    <div class="row">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>端口</th>
+                    <th>描述</th>
+                    <th>状态</th>
+                    <th>Uptime</th>
+                    <th>IP / Mask</th>
+                    <th id="in_all">入方向总流量(Bytes)</th>
+                    <th id="out_all">出方向总流量(Bytes)</th>
+                    <th id="in_speed">入方向流量速率(Bytes/sec)</th>
+                    <th id="out_speed">出方向流量速率(Bytes/sec)</th>
+                </tr>
+                </thead>
+                <tbody id="switch_info_tbody">
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
+<style type="text/css">
+.container-fluid {
+  margin: 5px 5px 30px 30px;
+}
+
+</style>

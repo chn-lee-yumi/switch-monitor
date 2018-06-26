@@ -1,0 +1,507 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- 上述3个meta标签*必须*放在最前面，任何其他内容都*必须*跟随其后！ -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <script src="/static/jquery.min.js"></script>
+    <script src="/static/bootstrap.min.js"></script>
+    <link href="/static/bootstrap.min.css" rel="stylesheet">
+    <script src="/static/echarts.min.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+    <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+
+    <script>
+        var chart_down_time;
+        var chart_cpu_load;
+        var chart_mem_used;
+        var chart_temp;
+
+        $(document).ready(function(){
+            chart_down_time = echarts.init(document.getElementById('chart_down_time'));
+            chart_cpu_load = echarts.init(document.getElementById('chart_cpu_load'));
+            chart_mem_used = echarts.init(document.getElementById('chart_mem_used'));
+            chart_temp = echarts.init(document.getElementById('chart_temp'));
+            setInterval(refresh_page, 5000);//5秒自动更新
+            refresh_page();
+        });
+
+        function refresh_page(){
+            //*******************************获取报警数据并输出到网页*******************************
+            $.getJSON("/api/warnings",function(data){
+                warnings_html="";
+                devices_down_html="";
+                devices_down_num=0;
+                cpu_overload_html="";
+                cpu_overload_num=0;
+                mem_overload_html="";
+                mem_overload_num=0;
+                heat_html="";
+                heat_num=0;
+                for(var sw in data){
+                    if(data[sw].warning=="devices_down"){
+                        devices_down_num+=1;
+                        devices_down_html+="<p><a href='/devices?ip="+data[sw].ip+"'>"+data[sw].ip+"</a>（"+data[sw].model+"）  掉线时间："+getLocalTime(data[sw].down_time)+"</p>";
+                    }
+                    if(data[sw].warning=="cpu_overload"){
+                        cpu_overload_num+=1;
+                        cpu_overload_html+="<p><a href='/devices?ip="+data[sw].ip+"'>"+data[sw].ip+"</a>（"+data[sw].model+"）  CPU使用率："+data[sw].cpu_load+"</p>";
+                    }
+                    if(data[sw].warning=="mem_overload"){
+                        mem_overload_num+=1;
+                        mem_overload_html+="<p><a href='/devices?ip="+data[sw].ip+"'>"+data[sw].ip+"</a>（"+data[sw].model+"）  内存使用率："+data[sw].mem_used+"</p>";
+                    }
+                    if(data[sw].warning=="heat"){
+                        heat_num+=1;
+                        heat_html+="<p><a href='/devices?ip="+data[sw].ip+"'>"+data[sw].ip+"</a>（"+data[sw].model+"）  温度："+data[sw].temp+"</p>";
+                    }
+                }
+                if(devices_down_num!=0){
+                    devices_down_html="<p><strong>"+devices_down_num+"台设备掉线。</strong></p>"+devices_down_html;
+                }
+                if(cpu_overload_num!=0){
+                    cpu_overload_html="<p><strong>"+cpu_overload_num+"台设备CPU过载。</strong></p>"+cpu_overload_html;
+                }
+                if(mem_overload_num!=0){
+                    mem_overload_html="<p><strong>"+mem_overload_num+"台设备内存使用率过高。</strong></p>"+mem_overload_html;
+                }
+                if(heat_num!=0){
+                    heat_html="<p><strong>"+heat_num+"台设备温度过高。</strong></p>"+heat_html;
+                }
+                warnings_html=devices_down_html+cpu_overload_html+mem_overload_html+heat_html;
+                if(warnings_html==""){
+                    $("#warnings-div").attr("class","alert alert-success");
+                    $("#warnings-div").html("<p></strong>所有设备正常！</strong></p>");
+                }else{
+                    $("#warnings-div").attr("class","alert alert-warning");
+                    $("#warnings-div").html(warnings_html);
+                }
+            });
+            //*******************************获取统计数据并显示图表*******************************
+            //*******************************down_time*******************************
+            $.getJSON("/api/down_time",function(data){
+                online_num=0;
+                just_down_num=0;
+                more_than_10min_num=0;
+                more_than_1h_num=0;
+                more_than_1d_num=0;
+                for(var t in data){
+                    if(data[t]=="在线"){
+                        online_num+=1;
+                    }else if(Date.parse(new Date())/1000-data[t]>=60*60*24){
+                        more_than_1d_num+=1;
+                    }else if(Date.parse(new Date())/1000-data[t]>=60*60){
+                        more_than_1h_num+=1;
+                    }else if(Date.parse(new Date()/1000-data[t])>=60*10){
+                        more_than_10min_num+=1;
+                    }else{
+                        just_down_num+=1;
+                    }
+                }
+                option = {
+                    title: {
+                        text: '设备掉线时长实时统计',
+                        textStyle: {
+                            color: '#235894'
+                        },
+                    },
+                    color: ['#3398DB'],
+                    tooltip : {
+                        trigger: 'axis',
+                        axisPointer : {
+                            type : 'shadow'
+                        }
+                    },
+                    grid: {
+                        left: '1%',
+                        right: '15%',
+                        bottom: '5%',
+                        containLabel: true
+                    },
+                    xAxis : [
+                        {
+                            type : 'category',
+                            data : ['在线','刚掉线','掉线超过10分钟','掉线超过1小时','掉线超过1天'],
+                            axisTick: {
+                                alignWithLabel: true
+                            },
+                            name : '掉线时长'
+                        }
+                    ],
+                    yAxis : [
+                        {
+                            type : 'value',
+                            name : '数量'
+                        }
+                    ],
+                    series : [
+                        {
+                            name:'数量',
+                            type:'bar',
+                            barWidth: '60%',
+                            data:[online_num,just_down_num,more_than_10min_num,more_than_1h_num,more_than_1d_num]
+                        }
+                    ]
+                };
+                chart_down_time.setOption(option);
+            });
+            //*******************************cpu_load*******************************
+            $.getJSON("/api/cpu_load",function(data){
+                cpu_failed_num=0;
+                cpu_unsupported_num=0;
+                cpu_0_20_num=0;
+                cpu_21_40_num=0;
+                cpu_41_60_num=0;
+                cpu_61_80_num=0;
+                cpu_81_100_num=0;
+                for(var t in data){
+                    if(data[t]=="获取失败"||data[t]=="等待获取"){
+                        cpu_failed_num+=1;
+                    }else if(data[t]=="设备不支持"){
+                        cpu_unsupported_num+=1;
+                    }else if(data[t]<=20){
+                        cpu_0_20_num+=1;
+                    }else if(data[t]<=40){
+                        cpu_21_40_num+=1;
+                    }else if(data[t]<=60){
+                        cpu_41_60_num+=1;
+                    }else if(data[t]<=80){
+                        cpu_61_80_num+=1;
+                    }else{
+                        cpu_81_100_num+=1;
+                    }
+                }
+                option = {
+                    title: {
+                        text: '设备CPU使用率分布实时统计',
+                        textStyle: {
+                            color: '#235894'
+                        },
+                    },
+                    color: ['#3398DB'],
+                    tooltip : {
+                        trigger: 'axis',
+                        axisPointer : {
+                            type : 'shadow'
+                        }
+                    },
+                    grid: {
+                        left: '1%',
+                        right: '15%',
+                        bottom: '5%',
+                        containLabel: true
+                    },
+                    xAxis : [
+                        {
+                            type : 'category',
+                            data : ['0~20%','21~40%','41~60%','61~80%','81~100%','设备不支持','未知'],
+                            axisTick: {
+                                alignWithLabel: true
+                            },
+                            name : 'CPU使用率'
+                        }
+                    ],
+                    yAxis : [
+                        {
+                            type : 'value',
+                            name : '数量'
+                        }
+                    ],
+                    series : [
+                        {
+                            name:'数量',
+                            type:'bar',
+                            barWidth: '60%',
+                            data:[cpu_0_20_num,cpu_21_40_num,cpu_41_60_num,cpu_61_80_num,cpu_81_100_num,cpu_unsupported_num,cpu_failed_num]
+                        }
+                    ]
+                };
+                chart_cpu_load.setOption(option);
+            });
+            //*******************************mem_used*******************************
+            $.getJSON("/api/mem_used",function(data){
+                mem_failed_num=0;
+                mem_unsupported_num=0;
+                mem_0_20_num=0;
+                mem_21_40_num=0;
+                mem_41_60_num=0;
+                mem_61_80_num=0;
+                mem_81_100_num=0;
+                for(var t in data){
+                    if(data[t]=="获取失败"||data[t]=="等待获取"){
+                        mem_failed_num+=1;
+                    }else if(data[t]=="设备不支持"){
+                        mem_unsupported_num+=1;
+                    }else if(data[t]<=20){
+                        mem_0_20_num+=1;
+                    }else if(data[t]<=40){
+                        mem_21_40_num+=1;
+                    }else if(data[t]<=60){
+                        mem_41_60_num+=1;
+                    }else if(data[t]<=80){
+                        mem_61_80_num+=1;
+                    }else{
+                        mem_81_100_num+=1;
+                    }
+                }
+                option = {
+                    title: {
+                        text: '设备内存使用率分布实时统计',
+                        textStyle: {
+                            color: '#235894'
+                        },
+                    },
+                    color: ['#3398DB'],
+                    tooltip : {
+                        trigger: 'axis',
+                        axisPointer : {
+                            type : 'shadow'
+                        }
+                    },
+                    grid: {
+                        left: '1%',
+                        right: '15%',
+                        bottom: '5%',
+                        containLabel: true
+                    },
+                    xAxis : [
+                        {
+                            type : 'category',
+                            data : ['0~20%','21~40%','41~60%','61~80%','81~100%','设备不支持','未知'],
+                            axisTick: {
+                                alignWithLabel: true
+                            },
+                            name : '内存使用率'
+                        }
+                    ],
+                    yAxis : [
+                        {
+                            type : 'value',
+                            name : '数量'
+                        }
+                    ],
+                    series : [
+                        {
+                            name:'数量',
+                            type:'bar',
+                            barWidth: '60%',
+                            data:[mem_0_20_num,mem_21_40_num,mem_41_60_num,mem_61_80_num,mem_81_100_num,mem_unsupported_num,mem_failed_num]
+                        }
+                    ]
+                };
+                chart_mem_used.setOption(option);
+            });
+            //*******************************mem_used*******************************
+            $.getJSON("/api/temp",function(data){
+                temp_failed_num=0;
+                temp_unsupported_num=0;
+                temp_less_than_40_num=0;
+                temp_41_50_num=0;
+                temp_51_60_num=0;
+                temp_61_70_num=0;
+                temp_more_than_70_num=0;
+                for(var t in data){
+                    if(data[t]=="获取失败"||data[t]=="等待获取"){
+                        temp_failed_num+=1;
+                    }else if(data[t]=="设备不支持"){
+                        temp_unsupported_num+=1;
+                    }else if(data[t]<=40){
+                        temp_less_than_40_num+=1;
+                    }else if(data[t]<=50){
+                        temp_41_50_num+=1;
+                    }else if(data[t]<=60){
+                        temp_51_60_num+=1;
+                    }else if(data[t]<=70){
+                        temp_61_70_num+=1;
+                    }else{
+                        temp_more_than_70_num+=1;
+                    }
+                }
+                option = {
+                    title: {
+                        text: '设备温度实时统计',
+                        textStyle: {
+                            color: '#235894'
+                        },
+                    },
+                    color: ['#3398DB'],
+                    tooltip : {
+                        trigger: 'axis',
+                        axisPointer : {
+                            type : 'shadow'
+                        }
+                    },
+                    grid: {
+                        left: '1%',
+                        right: '15%',
+                        bottom: '5%',
+                        containLabel: true
+                    },
+                    xAxis : [
+                        {
+                            type : 'category',
+                            data : ['<40','41~50','51~60','61~70','>70','设备不支持','未知'],
+                            axisTick: {
+                                alignWithLabel: true
+                            },
+                            name : '温度(℃)'
+                        }
+                    ],
+                    yAxis : [
+                        {
+                            type : 'value',
+                            name : '数量'
+                        }
+                    ],
+                    series : [
+                        {
+                            name:'数量',
+                            type:'bar',
+                            barWidth: '60%',
+                            data:[temp_less_than_40_num,temp_41_50_num,temp_51_60_num,temp_61_70_num,temp_more_than_70_num,temp_unsupported_num,temp_failed_num]
+                        }
+                    ],
+                    //tooltip: {
+                    //    formatter: '设备温度：{b}℃<br>数量：{c}'
+                    //}
+                };
+                chart_temp.setOption(option);
+            });
+            //*****************************获取统计数据并显示图表**END*********************************
+        }
+
+        function getLocalTime(t) {
+            var date = new Date(t*1000);
+            Y = date.getFullYear() + '-';
+            M = (date.getMonth()+1 < 10 ? '0'+(date.getMonth()+1) : date.getMonth()+1) + '-';
+            D = date.getDate() + ' ';
+            h = date.getHours() + ':';
+            m = date.getMinutes() + ':';
+            s = date.getSeconds();
+            return Y+M+D+h+m+s;
+        }
+
+
+
+
+
+    </script>
+
+    <title>广工大交换机监控</title>
+
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="header clearfix">
+        <nav>
+            <ul class="nav nav-pills pull-right">
+                <li class="active"><a href="/">首页</a></li>
+                <li><a href="/buildings">设备</a></li>
+                <li><a href="/ports">端口</a></li>
+                <li><a href="/settings">设置</a></li>
+                <!--<li><a href="#">帮助</a></li>-->
+                <li><a href="/logout">注销</a></li>
+            </ul>
+        </nav>
+        <h3 class="text-muted">广工大交换机监控</h3>
+    </div>
+
+    <h2 class="page-header">报警</h2>
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <div class="alert alert-info" id="warnings-div">
+                <p>正在加载信息……</p>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="page-header">概况</h2>
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <div class="row">
+                <div class="col-sm-6 col-xm-12">
+                    <div id="chart_down_time" style="width:100%;height:400px;float:left;"></div>
+                </div>
+                <div class="col-sm-6 col-xm-12">
+                    <div id="chart_cpu_load" style="width:100%;height:400px;float:left;"></div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-6 col-xm-12">
+                    <div id="chart_mem_used" style="width:100%;height:400px;float:left;"></div>
+                </div>
+                <div class="col-sm-6 col-xm-12">
+                    <div id="chart_temp" style="width:100%;height:400px;float:left;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>© 2017 学生宿舍交换机监控 - 广东工业大学“数字校园”科技项目.</p>
+    </footer>
+</div>
+
+</body>
+</html>
+<style type="text/css">
+
+body {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.header,
+.marketing,
+.footer {
+  padding-right: 15px;
+  padding-left: 15px;
+}
+
+
+.header {
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.header h3 {
+  margin-top: 0;
+  margin-bottom: 0;
+  line-height: 40px;
+}
+
+
+.footer {
+  padding-top: 19px;
+  color: #777;
+  border-top: 1px solid #e5e5e5;
+}
+
+.container-narrow > hr {
+  margin: 30px 0;
+}
+
+/* Responsive: Portrait tablets and up */
+@media screen and (min-width: 768px) {
+  /* Remove the padding we set earlier */
+  .header,
+  .footer {
+    padding-right: 0;
+    padding-left: 0;
+  }
+  /* Space out the masthead */
+  .header {
+    margin-bottom: 30px;
+  }
+}
+</style>

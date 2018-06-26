@@ -1,0 +1,8 @@
+
+172.16.101.1,GigabitEthernet0/0/1
+172.16.101.2,GigabitEthernet0/0/1
+172.16.101.253,XGigabitEthernet0/0/1
+172.16.254.1,Eth-Trunk1
+172.16.254.1,Eth-Trunk2
+172.16.254.1,Eth-Trunk3
+172.16.254.1,Eth-Trunk10
