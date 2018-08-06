@@ -1,10 +1,12 @@
 LICENSE：GPLv3
 
+
+
 环境：Python3
 依赖包：requests、flask
 
 Debian系统安装运行：
-apt-get install python3
+apt-get install python3 snmp
 pip3 install requests
 pip3 install flask
 python3 SwitchMonitor.py
