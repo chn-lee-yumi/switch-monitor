@@ -1,0 +1,26 @@
+数据库：data.db
+表：switches 存储交换机的基本信息
+(
+ip varchar(15),
+model varchar(10),
+desc varchar(20),
+down_time int(10)
+)
+
+
+数据库：data_history.db
+每个IP（交换机）做一个表，存储交换机状态的历史记录
+(
+timestamp int(10),
+cpu char(5),
+mem char(5),
+temp char(5)
+)
+
+数据库：flow_history.db
+每个要监控流量的端口做一个表，存储端口流量速率的历史记录
+(
+timestamp int(10),
+in int(20),
+out int(20)
+)

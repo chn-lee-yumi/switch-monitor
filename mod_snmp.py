@@ -1,6 +1,9 @@
 # encoding: utf-8
 import platform
 import subprocess
+from Config import SNMP_READ_COMMUNITY, SNMP_WRITE_COMMUNITY
+
+# TODO: SNMP模块现在在windows下会有奇怪的bug，popen的时候只要加了-O qv就没有回显，但在cmd中执行命令是有回显的。
 
 '''
 该模块用于使用SNMP获取交换机信息，调用了snmpwalk.exe，若是linux系统，修改一下SNMP_BIN_PATH即可。
@@ -36,9 +39,7 @@ E152:
 SNMP_TIMEOUT = "1"
 SNMP_RETRY_TIMES = "3"
 SNMP_VER = "2c"
-SNMP_READ_COMMUNITY = "read"
-SNMP_WRITE_COMMUNITY = "write"
-if platform.system() == "Windows":  # windows系统不知道出什么问题了，snmp用不了
+if platform.system() == "Windows":
     SNMP_WALK_BIN_PATH = ".\\bin\\snmpwalk"
     SNMP_SET_BIN_PATH = ".\\bin\\snmpset"
 else:
@@ -124,7 +125,7 @@ def SnmpWalk(ip, model, info):
         a = subprocess.Popen(
             [SNMP_WALK_BIN_PATH, "-O", "qv", "-t", "1", "-r", "3", "-v", SNMP_VER, "-c", SNMP_READ_COMMUNITY, ip, oid],
             bufsize=0, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        b = a.stdout.read().decode('utf-8')[:-1]
+        b = a.stdout.read().decode('utf-8').strip('\n')
         if b == "": return "获取失败"
         if b.find("No Such Object") >= 0: return "设备不支持"
         if return_list == True:
@@ -155,11 +156,11 @@ def SnmpSet(ip, model, info):
     try:
         a = subprocess.Popen(
             [SNMP_SET_BIN_PATH, "-O", "qv", "-t", "1", "-r", "3", "-v", SNMP_VER, "-c", SNMP_WRITE_COMMUNITY, ip, oid,
-             type,
-             value], bufsize=0, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+             type, value], bufsize=0, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
         # snmpwalk -v 2c -c gdgydx_pub 172.16.111.1 1.3.6.1.2.1.2.2.1.2
         # snmpwalk -v 2c -c gdgydx_pub 172.16.111.1 1.3.6.1.2.1.2.2.1.10
-        b = a.stdout.read().decode('utf-8')[:-1]
+        b = a.stdout.read().decode('utf-8').strip('\n')
         # 下面清空流，防止爆内存，参考http://blog.csdn.net/pugongying1988/article/details/54616797
         if a.stdin:
             a.stdin.close()
@@ -191,7 +192,6 @@ def SnmpSet(ip, model, info):
             [SNMP_WALK_BIN_PATH, "-O", "qv", "-t", SNMP_TIMEOUT, "-r", SNMP_RETRY_TIMES, "-v", SNMP_VER, "-c",
              SNMP_COMMUNITY, ip, oid], shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
-
     return b.stdout.read().decode('utf-8')[:-1]  # 去掉回车和换行符
 '''
 
@@ -202,21 +202,26 @@ def get_oid(model, info):
 '''
 
 if __name__ == '__main__':  # SNMP测试
+    # print(SnmpWalk("172.16.101.1", "S2700", "up_time"))
+    ip = "172.16.254.1"
+    oid = "1.3.6.1.2.1.2.2.1.9"
+    a = subprocess.Popen(
+        [SNMP_WALK_BIN_PATH, "-O", "qv", "-t", "1", "-r", "3", "-v", SNMP_VER, "-c", SNMP_READ_COMMUNITY, ip, oid],
+        bufsize=0, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # a = subprocess.Popen(
     #    [SNMP_WALK_BIN_PATH, "-O", "qv", "-t", "5", "-r", "2", "-v", SNMP_VER, "-c", "index", "demo.snmplabs.com",
     #     "1.3.6.1.4.1.20408.999.1.1.1"], bufsize=0, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
     #    stderr=subprocess.PIPE)
-    a = subprocess.Popen(
-        [SNMP_WALK_BIN_PATH, "-t", SNMP_TIMEOUT, "-r", SNMP_RETRY_TIMES, "-v", SNMP_VER, "-c",
-         SNMP_READ_COMMUNITY, "172.16.254.1", "1.3.6.1.2.1.2.2.1.9"], bufsize=0, shell=False,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    '''a = subprocess.Popen(
+    [SNMP_WALK_BIN_PATH, "-t", SNMP_TIMEOUT, "-r", SNMP_RETRY_TIMES, "-v", SNMP_VER, "-c",
+     SNMP_READ_COMMUNITY, "172.16.254.1", "1.3.6.1.2.1.2.2.1.9"], bufsize=0, shell=False,stdin=subprocess.PIPE,
+    stdout=subprocess.PIPE, stderr=subprocess.PIPE)'''
     # a = subprocess.Popen(
     #    [SNMP_SET_BIN_PATH, "-O", "qv", "-t", "1", "-r", "3", "-v", SNMP_VER, "-c", SNMP_WRITE_COMMUNITY, "172.16.102.1", "1.3.6.1.4.1.2011.5.25.19.1.3.2.0", "i",
     #     "3"], bufsize=0, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    a = a.stdout.read().decode()
+    # a = a.stdout.read().decode()
 
-    print(a)
+    print(a.stdout.read().decode())
     print("*" * 50)
 
     '''

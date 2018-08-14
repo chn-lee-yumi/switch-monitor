@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+# 部署所需计算资源参考：在学校环境下（约600台交换机）整个监控系统部署在树莓派2B@1GHz时，总CPU使用率约50%~60%，Load Average 约3.5
+
 import sqlite3
 import threading
 from multiprocessing import cpu_count
@@ -12,7 +14,9 @@ from mod_reboot_switch import *
 from mod_snmp import *
 from mod_weixin import *
 
-# from Config import *
+from Config import WEB_USERNAME, WEB_PASSWORD, WEB_PORT, HELPDESK_TIME, WEIXIN_STAT_TIME_H, WEIXIN_STAT_TIME_M, \
+    SW_REBOOT_TIME_H, SW_REBOOT_TIME_M, CPU_THRESHOLD, MEM_THRESHOLD, TEMP_THRESHOLD, DATA_RECORD_INTERVAL, \
+    DATA_RECORD_SAVED_DAYS
 
 lock = threading.Lock()  # data.db
 lock2 = threading.Lock()  # data_history.db
@@ -57,6 +61,8 @@ def start_switch_monitor():
     # 检查数据库
     conn = sqlite3.connect("data.db")
     cursor = conn.cursor()
+    tmp_time = time.time()
+    cursor.execute('PRAGMA synchronous = OFF')  # 初始化时关闭写同步提高速度
     try:
         cursor.execute("select * from sqlite_master where type = 'table' and name = 'switches'")
         values = cursor.fetchall()
@@ -111,19 +117,22 @@ def start_switch_monitor():
                     if len(values) == 0:
                         cursor.execute("insert into switches values ('" + switches_info[0] + "', '" + switches_info[
                             1] + "', '" + switches_info[2] + "', '在线')")
-            conn.commit()
             building_controller[switches_list[building_list[a]][3:]] = BuildingController(
                 "楼栋控制器_" + switches_list[building_list[a]][3:], switches_list[building_list[a]][3:],
                 building_switches_ip, building_switches_model, building_switches_desc)
             building_names.append(switches_list[building_list[a]][3:])
     finally:
+        conn.commit()
         cursor.close()
         conn.close()
         lock.release()
+    print("初始化数据表用时：", time.time() - tmp_time)
 
     # 检查历史记录数据库
     conn = sqlite3.connect("data_history.db")
     cursor = conn.cursor()
+    tmp_time = time.time()
+    cursor.execute('PRAGMA synchronous = OFF')  # 初始化时关闭写同步提高速度，无数据表时启动时间缩短为约1/3
     try:
         for building_name in building_names:
             for switch in building_controller[building_name].switches:
@@ -137,6 +146,7 @@ def start_switch_monitor():
         conn.commit()
         cursor.close()
         conn.close()
+    print("初始化历史记录数据库用时：", time.time() - tmp_time)
 
     # 初始化监控端口列表 TODO:参考交换机列表的读取
     global port_list
@@ -149,6 +159,8 @@ def start_switch_monitor():
     # 检查流量速率记录数据库
     conn = sqlite3.connect("flow_history.db")
     cursor = conn.cursor()
+    tmp_time = time.time()
+    cursor.execute('PRAGMA synchronous = OFF')  # 初始化时关闭写同步提高速度
     try:
         for port in port_list:
             cursor.execute("select * from sqlite_master where type = 'table' and name = '" + port + "'")  # 检查有没有此端口的表
@@ -161,6 +173,7 @@ def start_switch_monitor():
         conn.commit()
         cursor.close()
         conn.close()
+    print("初始化流量速率数据库用时：", time.time() - tmp_time)
 
     # 启动web界面。注：生产环境部署参考http://docs.jinkan.org/docs/flask/deploying/index.html
     threading.Thread(target=startweb, name="线程_flask").start()
@@ -182,7 +195,9 @@ def start_switch_monitor():
     while 1:
         try:
             cmd = input("\033[1;35mDebug Command: \033[0m")  # print(building_controller['核心'].switches[0].if_out)
-            if cmd == 'exit': break
+            if cmd == 'exit':
+                print("\033[1;36mExit debug.\033[0m\n")
+                break
             if cmd == 'help': print("exit: exit debug.\n")
             exec(cmd)
         except:
@@ -247,10 +262,11 @@ class Switch(object):
 
 
 def scan_building_ping(building_name):  # 在线扫描线程
+    # 在学校环境下消耗的CPU资源（top命令查看，仅供参考）：树莓派2B@1GHz，python进程约占7.5%
     global building_controller
     time.sleep(3)  # 等3秒，等building_controller赋完值，不然会提示KeyError。其实1秒就够了，防止在低配电脑上造成意外，设置成3秒。
     while 1:
-        time.sleep(1)  # 防止断网时CPU爆高
+        time.sleep(2)  # 防止断网时CPU使用率100%，也能显著降低联网时的CPU使用率
         # 检查在线情况
         for switch in building_controller[building_name].switches:
             if checkswitch(switch.ip) == True:
@@ -262,9 +278,12 @@ def scan_building_ping(building_name):  # 在线扫描线程
                     tmp_time = time.time()
                     switch.down_time = tmp_time
                     write_db(switch.ip, "down_time", "%d" % tmp_time)
+            time.sleep(0.1)  # 显著降低联网时的CPU使用率，经测试，0.05约占20%，0.1约占7.5%，0.2约占5%
 
 
 def scan_building_snmp(building_name):  # SNMP扫描线程
+    # 在学校环境下消耗的CPU资源（top命令查看，仅供参考）：树莓派2B@1GHz，python进程约占45%
+    # 总CPU使用率约为40%（100-idle）。波动较大。Load Average 约2.8
     # TODO：改用池的方法而不是分楼栋，因为交换机数量不定
     global building_controller
     time.sleep(3)
@@ -272,8 +291,9 @@ def scan_building_snmp(building_name):  # SNMP扫描线程
         # 获取SNMP数据
         # 要获取的信息：CPU使用率、内存使用率、风扇、温度、启动时间、接口状态
         for switch in building_controller[building_name].switches:
-            # 下面的代码用于低性能电脑测试时防止CPU爆满
-            # if cpu_count() <= 2: time.sleep(5 * len(building_controller) * random.random() / cpu_count())
+            time.sleep(1)  # 轻微减少snmpwalk并发数量，降低CPU使用率和负载。如果在性能较好的服务器部署，可以注释掉。
+            # 下面的代码用于低性能电脑，防止CPU爆满。测试：树莓派2B@1GHz，python进程约占30%，总CPU使用率约为30%。默认不开。
+            # if cpu_count() <= 4: time.sleep(len(building_controller) / cpu_count()) # 大约减少了一半snmpwalk并发数量
             # 下面的代码用于收集数据
             if switch.down_time == "在线":
                 if switch.info_time != "等待获取":
@@ -286,11 +306,12 @@ def scan_building_snmp(building_name):  # SNMP扫描线程
                         switch.if_index = SnmpWalk(switch.ip, switch.model, "if_index").split()
                         switch.if_descr = SnmpWalk(switch.ip, switch.model, "if_descr").replace('"', '').split(
                             "\n")  # 去掉双引号
+                        # switch.if_uptime = list(map(int, SnmpWalk(switch.ip, switch.model, "if_uptime").split()))  # 转为整型
                         switch.if_uptime = SnmpWalk(switch.ip, switch.model, "if_uptime").split()
                         switch.if_ip = SnmpWalk(switch.ip, switch.model, "if_ip").split()
                         switch.if_ipindex = SnmpWalk(switch.ip, switch.model, "if_ipindex").split()
                         switch.if_ipmask = SnmpWalk(switch.ip, switch.model, "if_ipmask").split()
-                        switch.name = SnmpWalk(switch.ip, switch.model, "name")[1:-2]  # 截掉交换机名字的双引号
+                        switch.name = SnmpWalk(switch.ip, switch.model, "name")[1:-1]  # 截掉交换机名字的双引号
                         for a in range(0, 5):
                             tmp_if_name = SnmpWalk(switch.ip, switch.model, "if_name").replace('"', '').replace('\r',
                                                                                                                 '').split(
@@ -309,7 +330,8 @@ def scan_building_snmp(building_name):  # SNMP扫描线程
                     switch.if_status = SnmpWalk(switch.ip, switch.model, "if_status").split()
                     last_if_in = switch.if_in
                     last_if_out = switch.if_out
-                    switch.if_in = SnmpWalk(switch.ip, switch.model, "if_in").split()
+                    switch.if_in = SnmpWalk(switch.ip, switch.model,
+                                            "if_in").split()  # TODO：列表需加判断len是否正常，因为snmp会丢包（基于UDP）
                     switch.if_out = SnmpWalk(switch.ip, switch.model, "if_out").split()
                     if_in_speed = []
                     if_out_speed = []
@@ -324,7 +346,8 @@ def scan_building_snmp(building_name):  # SNMP扫描线程
                                     if int(switch.if_in[a]) - int(last_if_in[a]) < 0:
                                         switch.if_in[a] = int(switch.if_in[a]) + 2 ** 64
                                     if_in_speed.append(int((int(switch.if_in[a]) - int(last_if_in[a])) / (
-                                            int(switch.info_time) - int(switch.last_info_time))))
+                                            int(switch.info_time) - int(
+                                        switch.last_info_time))))  # TODO：计算好像不大准确，出来的图形很多刺
                                 else:  # 如果数据不完整，直接改成获取失败
                                     switch.if_in = ['获取失败']
                                 switch.if_in_speed = if_in_speed
@@ -367,10 +390,10 @@ def data_supervisor():  # 监控线程。TODO：增加helpdesk接入
                     print(switch.ip, " switch.down_time ", switch.down_time)
                     write_log(switch.ip + " switch.down_time " + switch.down_time)
         time.sleep(1)
-        if time.localtime()[3] == WEIXIN_STAT_TIME_H and time.localtime()[4] == WEIXIN_STAT_TIME_M:  # 每天下午18点发送统计信息
+        if time.localtime()[3] == WEIXIN_STAT_TIME_H and time.localtime()[4] == WEIXIN_STAT_TIME_M:  # 每天发送统计信息
             send_weixin_stat()
             time.sleep(60)
-        if time.localtime()[3] == SW_REBOOT_TIME_H and time.localtime()[4] == SW_REBOOT_TIME_M:
+        if time.localtime()[3] == SW_REBOOT_TIME_H and time.localtime()[4] == SW_REBOOT_TIME_M:  # 每天重启过载交换机
             reboot_overload_sw()
 
 
@@ -439,39 +462,41 @@ def reboot_overload_sw():  # 每天自动重启过载交换机
 
 
 def data_history_recoder():
-    # 每5分钟把数据写入一次数据库
+    # 定时把数据写入一次数据库（每隔DATA_RECORD_INTERVAL分钟）
     global building_names
     global building_controller
     global lock2
     global port_list
     global lock3
     while (1):
-        while (time.localtime()[5] != 0 or time.localtime()[4] % 5 != 0):  # 秒==0，分%5==0。每5分钟
+        while (time.localtime()[5] != 0 or time.localtime()[
+            4] % DATA_RECORD_INTERVAL != 0):  # 秒==0，分%DATA_RECORD_INTERVAL==0。每DATA_RECORD_INTERVAL分钟
             time.sleep(0.5)
+        write_log("alive")
         lock2.acquire()
         conn = sqlite3.connect("data_history.db")
         cursor = conn.cursor()
         lock3.acquire()
         conn_flow = sqlite3.connect("flow_history.db")
         cursor_flow = conn_flow.cursor()
-        # 历史记录保存3天。整点清理3*24小时前的记录。
+        # 整点清理data_record_days*24小时前的记录。
         if time.localtime()[4] == 0:  # 分==0
-            timestamp = str(int(time.time()) - 3 * 24 * 60 * 60)
+            tmp_time = time.time()
+            timestamp = str(int(time.time()) - DATA_RECORD_SAVED_DAYS * 24 * 60 * 60)
             try:
                 for building_name in building_names:
                     for switch in building_controller[building_name].switches:
                         cursor.execute(
                             "DELETE FROM '" + switch.ip + "' WHERE timestamp <= " + timestamp)
-                    conn.commit()
             finally:
                 pass
             try:
                 for port in port_list:
                     cursor_flow.execute(
                         "DELETE FROM '" + port + "' WHERE timestamp <= " + timestamp)
-                    conn_flow.commit()
             finally:
                 pass
+            print("清除一小时数据所用时间：", time.time() - tmp_time)
         # 下面开始写入当前时间的数据
         timestamp = str(int(time.time()))
         try:
@@ -480,8 +505,8 @@ def data_history_recoder():
                     cursor.execute(
                         "INSERT INTO '" + switch.ip + "' VALUES ('" + timestamp + "', '" + str(
                             switch.cpu_load) + "', '" + str(switch.mem_used) + "', '" + str(switch.temp) + "')")
-                conn.commit()
         finally:
+            conn.commit()
             cursor.close()
             conn.close()
             lock2.release()
@@ -507,10 +532,10 @@ def data_history_recoder():
                                     pass
                                     # print("Error: port not found: " + switch_port)
                                     # print(switch.if_name)
-                    conn_flow.commit()
                 else:
                     pass
         finally:
+            conn_flow.commit()
             cursor_flow.close()
             conn_flow.close()
             lock3.release()
@@ -587,40 +612,58 @@ def logout():
 @app.route('/buildings')
 def buildings():
     global building_names
-    options_html = ""
-    for a in building_names:  # TODO:在HTML内用API获取，而不是在这里渲染
-        options_html += "<option value=" + a + ">" + a + "</option>\n"
-    return render_template('buildings.html', options=options_html)
+    if 'username' in session:
+        options_html = ""
+        for a in building_names:  # TODO:在HTML内用API获取，而不是在这里渲染
+            options_html += "<option value=" + a + ">" + a + "</option>\n"
+        return render_template('buildings.html', options=options_html)
+    else:
+        return "未登录！"
 
 
 # 设备具体信息页
 @app.route('/devices')
 def devices():
-    return render_template('devices.html')
+    if 'username' in session:
+        return render_template('devices.html')
+    else:
+        return "未登录！"
 
 
 # 端口监控信息页
 @app.route('/ports')
 def ports():
-    return render_template('ports.html')
+    if 'username' in session:
+        return render_template('ports.html')
+    else:
+        return "未登录！"
 
 
 # 端口流量信息页
 @app.route('/port')
 def port():
-    return render_template('port.html')
+    if 'username' in session:
+        return render_template('port.html')
+    else:
+        return "未登录！"
 
 
 # 工具页
 @app.route('/tools')
 def tools():
-    return render_template('tools.html')
+    if 'username' in session:
+        return render_template('tools.html')
+    else:
+        return "未登录！"
 
 
 # 设置页
 @app.route('/settings')
 def settings():
-    return render_template('settings.html')
+    if 'username' in session:
+        return render_template('settings.html')
+    else:
+        return "未登录！"
 
 
 # API，返回楼栋信息
@@ -713,20 +756,22 @@ def api_history(ip):
     # TODO:接口流量记录、核心接口速度有误的BUG（获取速率太低）。设备详细信息页面改实时监控，因为核心流量太大。
     global building_names
     global building_controller
-    global lock2
-    lock2.acquire()
+    # global lock2
+    # lock2.acquire()
     conn = sqlite3.connect("data_history.db")
     cursor = conn.cursor()
+    tmp_time = time.time()
     try:
         cursor.execute("SELECT * FROM '" + ip + "'")
         values = cursor.fetchall()
     finally:
         cursor.close()
         conn.close()
-        lock2.release()
+        # lock2.release()
     his_dict = {}
     for a in values:
         his_dict[a[0]] = {'cpu': a[1], 'mem': a[2], 'temp': a[3]}
+    print("查询历史数据消耗时间：", time.time() - tmp_time)
     return json.dumps(his_dict, ensure_ascii=False)
 
 
@@ -734,20 +779,22 @@ def api_history(ip):
 @app.route('/api/flow_history/<port>')
 def api_flow_history(port):
     port = port.replace("_", "/")
-    global lock3
-    lock3.acquire()
+    # global lock3
+    # lock3.acquire()
     conn = sqlite3.connect("flow_history.db")
     cursor = conn.cursor()
+    tmp_time = time.time()
     try:
         cursor.execute("SELECT * FROM '" + port + "'")
         values = cursor.fetchall()
     finally:
         cursor.close()
         conn.close()
-        lock3.release()
+        # lock3.release()
     his_dict = {}
     for a in values:
         his_dict[a[0]] = {'in': a[1], 'out': a[2]}
+    print("查询流量历史数据消耗时间：", time.time() - tmp_time)
     return json.dumps(his_dict, ensure_ascii=False)
 
 
@@ -808,15 +855,21 @@ def reboot_sw():
 # API，发送微信统计。
 @app.route('/api/tools/send_wx_stat')
 def send_wx_stat():
-    send_weixin_stat()
-    return 0
+    if 'username' in session:
+        send_weixin_stat()
+        return 0
+    else:
+        return "未登录！"
 
 
 # 测试工单提交。TODO：接入新helpdesk
 @app.route('/test_ticket')
 def test_ticket():
-    send_incident('东二', '172.16.102.1')
-    return 0
+    if 'username' in session:
+        send_incident('东二', '172.16.102.1')
+        return 0
+    else:
+        return "未登录！"
 
 
 if __name__ == '__main__':

@@ -121,8 +121,12 @@
                     if_status="DOWN";
                 }
                 up_time_string=data["if_uptime"][sw].split(':');
-                data["if_uptime"][sw]=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+up_time_string[3]+"秒";
-                table_html+="<tr><td>"+data["if_name"][sw]+"</td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+(data["if_in"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_out"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple).toFixed(4)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple).toFixed(4)+"</td></tr>";
+                data["if_uptime"][sw]=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+parseInt(up_time_string[3])+"秒";
+                if(speed_multiple==1 || speed_multiple==8){
+                    table_html+="<tr><td>"+data["if_name"][sw]+"</td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+(data["if_in"][sw]*all_multiple)+"</td><td>"+(data["if_out"][sw]*all_multiple)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple)+"</td></tr>";
+                }else{
+                    table_html+="<tr><td>"+data["if_name"][sw]+"</td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+(data["if_in"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_out"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple).toFixed(4)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple).toFixed(4)+"</td></tr>";
+                }
             }
             $("#switch_info_tbody").html(table_html);
         }

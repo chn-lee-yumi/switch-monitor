@@ -3,7 +3,7 @@ import telnetlib
 import time
 import traceback
 import mod_snmp
-
+from Config import SWITCH_PASSWORD
 
 '''
 该模块用于重启交换机
@@ -11,8 +11,6 @@ import mod_snmp
 ips为需重启交换机IP的list，如["172.16.101.1","172.16.101.2"]
 无返回值。
 '''
-
-switch_password = "123456"  # 密码
 
 
 def reboot_switch_telnet(ip):
@@ -25,7 +23,7 @@ def reboot_switch_telnet(ip):
         # 输入登录密码
         print('Connected. Logining...')
         tn.read_until('assword:'.encode('gbk'), 5)
-        tn.write(switch_password.encode('gbk') + b'\n')
+        tn.write(SWITCH_PASSWORD.encode('gbk') + b'\n')
         # 登录完毕后执行命令
         tn.read_until('>'.encode('gbk'), 5)
         print('Login succeed! Rebooting...')

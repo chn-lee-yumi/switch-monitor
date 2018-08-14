@@ -1,6 +1,5 @@
 import socket
-
-from Config import *
+from Config import TCPING_TIMEOUT
 
 socket.setdefaulttimeout(TCPING_TIMEOUT)
 

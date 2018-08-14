@@ -31,6 +31,7 @@
         }
         var port=getQueryStr("port");
 
+        var flow_data;
         var speed_multiple=1;
         var selected='Bytes/s';
         $(document).ready(function(){
@@ -86,7 +87,7 @@
                    $("#out_speed").text("出方向流量速率(Bytes/s)");
                    speed_multiple=1;
                }
-               refresh_page();
+               refresh_chart();
             });
             $("#port").text(port.replace(/_/,'\/').replace(/_/,'\/'));//不知道为什么只replace一次的时候只有一个下划线被转换
             chart_history = echarts.init(document.getElementById('chart_history'));
@@ -94,75 +95,86 @@
             refresh_page();
         });
 
+        function refresh_chart(){
+            var in_speed=[];
+            var out_speed=[];
+            var timeline=new Array();
+            for(timestamp in flow_data){
+                timeline.push(timestamp*1000);
+                if(speed_multiple==1 || speed_multiple==8){
+                    in_speed.push({value:[timestamp*1000,(flow_data[timestamp]['in']*speed_multiple)]});
+                    out_speed.push({value:[timestamp*1000,(flow_data[timestamp]['out']*speed_multiple)]});
+                }else{
+                    in_speed.push({value:[timestamp*1000,(flow_data[timestamp]['in']*speed_multiple).toFixed(4)]});
+                    out_speed.push({value:[timestamp*1000,(flow_data[timestamp]['out']*speed_multiple).toFixed(4)]});
+                }
+            };
+            option = {
+                title: {
+                    text: '端口速率',
+                    textStyle: {
+                        color: '#235894'
+                    },
+                },
+                legend: {
+                    data:['流入速率','流出速率']
+                },
+                tooltip : {
+                    trigger: 'axis'
+                },
+                toolbox : {
+                    show: true,
+                    right: '4%',
+                    feature: {
+                        dataZoom: {},
+                        restore: {},
+                        saveAsImage: {}
+                    }
+                },
+                grid: {
+                    left: '2%',
+                    right: '5%',
+                    bottom: '2%',
+                    containLabel: true
+                },
+                xAxis : [
+                    {
+                        type : 'time',
+                        name : '时间'
+                    }
+                ],
+                yAxis : [
+                    {
+                        type : 'value',
+                        name : selected,
+                    },
+                ],
+                series : [
+                    {
+                        name:'流入速率',
+                        type:'line',
+                        data:in_speed,
+                        showSymbol: false
+                    },
+                    {
+                        name:'流出速率',
+                        type:'line',
+                        data:out_speed,
+                        showSymbol: false
+                    }
+                ]
+            };
+            chart_history.setOption(option);
+        }
+
         function refresh_page(){
+            $.ajaxSetup({async:false});//设置成同步，给flow_data赋值。
             //*******************************获取历史数据并显示图表*******************************
             $.getJSON("/api/flow_history/"+port,function(data){
                 console.log(data);
-                var in_speed=[];
-                var out_speed=[];
-                var timeline=new Array();
-                for(timestamp in data){
-                    timeline.push(timestamp*1000);
-                    in_speed.push({value:[timestamp*1000,(data[timestamp]['in']*speed_multiple).toFixed(4)]});
-                    out_speed.push({value:[timestamp*1000,(data[timestamp]['out']*speed_multiple).toFixed(4)]});
-                };
-                option = {
-                    title: {
-                        text: '端口速率',
-                        textStyle: {
-                            color: '#235894'
-                        },
-                    },
-                    legend: {
-                        data:['流入速率','流出速率']
-                    },
-                    tooltip : {
-                        trigger: 'axis'
-                    },
-                    toolbox : {
-                        show: true,
-                        right: '4%',
-                        feature: {
-                            dataZoom: {},
-                            restore: {},
-                            saveAsImage: {}
-                        }
-                    },
-                    grid: {
-                        left: '2%',
-                        right: '5%',
-                        bottom: '2%',
-                        containLabel: true
-                    },
-                    xAxis : [
-                        {
-                            type : 'time',
-                            name : '时间'
-                        }
-                    ],
-                    yAxis : [
-                        {
-                            type : 'value',
-                            name : selected,
-                        },
-                    ],
-                    series : [
-                        {
-                            name:'流入速率',
-                            type:'line',
-                            data:in_speed,
-                            showSymbol: false
-                        },
-                        {
-                            name:'流出速率',
-                            type:'line',
-                            data:out_speed,
-                            showSymbol: false
-                        }
-                    ]
-                };
-                chart_history.setOption(option);
+                flow_data=data;
             });
+            refresh_chart()
         };
 
     </script>

@@ -1,8 +1,8 @@
 # encoding: utf-8
 import json
 import time
-
 import requests
+from Config import corpid,corpsecret
 
 '''
 该模块用于发送微信推送
@@ -16,10 +16,7 @@ token为前面得到的access_token
 TODO：处理网络异常。
 '''
 
-corpid = "wx01d7asdga2345c36"
-token = ['', '', '', '', '', '', '']
-corpsecret = ['', '', 'XbVPLqxasadsfdfdshadfgsd _ASDfasdfbREnCvZQ5IgwAOS8', '', '', '',
-              'tXrTsdpzWpxRO-V1QA--asdjfa324FDEHV6p3YTsdfaXiWjasdgUzZOs1JpM']
+token = [''] * len(corpsecret)
 
 
 def get_token(agentid):

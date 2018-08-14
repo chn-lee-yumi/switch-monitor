@@ -1,6 +1,5 @@
 # encoding: utf-8
 import json
-
 import requests
 
 
@@ -107,7 +106,7 @@ def send_incident(building_name, switch_ip):
 
     # 模拟登录。用户名密码是加密过的，在浏览器用F12抓包获得。
     a = requests.get(
-        "http://helpdesk1.gdut.edu.cn/portal/edulogin?username=12345%3D%3D&password=12345&safe=1")
+        "http://helpdesk1.gdut.edu.cn/portal/edulogin?username=MzExNTAwNjI1NA%3D%3D&password=nqrstu&safe=1")
     print(a.cookies)
     # print(a.text)
 
@@ -154,6 +153,8 @@ def send_incident(building_name, switch_ip):
     print(e_orgid)
     print(e_orgname)
     # http://helpdesk.gdut.edu.cn/portal/wfe/getUsers.action?activityId=d3d147a82cf0458381ca79ff39c8ff08&isBack=N&appId=INC-10100282&hasextenduser=Y&formId=1
+    # print(json.loads(e.text)[0]["orgname"])
+    # 返回的内容[{"activityid":"","orgid":"3115006254","orgname":"利昱旻","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0},{"activityid":"","orgid":"3116002852","orgname":"何永宝","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0},{"activityid":"","orgid":"3116001555","orgname":"梁鸿楷","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0},{"activityid":"","orgid":"ff80808142c70b5b0142c84ed7d1002d","orgname":"张诗健","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0},{"activityid":"","orgid":"ff808081484d8ffc0149079fc5af769c","orgname":"曾任","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0}]
 
     # 工单加绿色点
     f = requests.post("http://helpdesk.gdut.edu.cn/portal/sla/sla_addRecord.action?id=" + c["appId"],
@@ -189,3 +190,13 @@ def send_incident(building_name, switch_ip):
 if __name__ == '__main__':
     send_incident("东二", "172.16.102.1")
 
+'''
+<RequestsCookieJar[<Cookie CASTGC=TGC-453-oq4t649V9XOpW7vCVk7GduicPdqVKJezl1luk30IctzuIomW5v for .helpdesk.gdut.edu.cn/portal>, <Cookie JSESSIONID=102FB5780DFED3FDF6B9B8EC16CC1D57 for helpdesk.gdut.edu.cn/portal>]>
+{"activityId":"84d8011ea67d4502b461e8637e02ff25","activityInstanceId":"5e48e28b5f52116b015f682d8784179a","activityName":"开始","appId":"INC-10179970","author":"3115006254","authorName":"利昱旻","docStatus":"","formId":"1","itemId":"5e48e28b5f52116b015f682d8784179b","parentProcessInstanceId":"","processId":"ebfbdae025bb44c093ab7ad8d3520830","processInstanceId":"5e48e28b5f52116b015f682d87841799","processName":"","status":"new","title":"交换机故障检查 172.16.102.1"}
+INC-10179970
+[{"activityid":"","orgid":"3115006254","orgname":"利昱旻","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0},{"activityid":"","orgid":"3116002852","orgname":"何永宝","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0},{"activityid":"","orgid":"3116001555","orgname":"梁鸿楷","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0},{"activityid":"","orgid":"3117003167","orgname":"许锦涛","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0},{"activityid":"","orgid":"3117001776","orgname":"范家演","orgtype":"YG","parentnames":"","participantid":"","processid":"","showorder":0}]
+3115006254,3116002852,3116001555,3117003167,3117001776,
+利昱旻,何永宝,梁鸿楷,许锦涛,范家演,
+工单提交状况：{"flg":"1","msg":"提交成功!"}
+微信推送状况：{"scuess":1}
+'''
