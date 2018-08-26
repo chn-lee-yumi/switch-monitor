@@ -91,7 +91,7 @@
             });
             $("#port").text(port.replace(/_/,'\/').replace(/_/,'\/'));//不知道为什么只replace一次的时候只有一个下划线被转换
             chart_history = echarts.init(document.getElementById('chart_history'));
-            setInterval(refresh_page, 180000);//3分钟刷新一次
+            setInterval(refresh_page, 30000);//30秒刷新一次
             refresh_page();
         });
 
@@ -211,7 +211,7 @@
             <option value="KB/s">KB/s</option>
             <option value="Byte/s" selected="selected">Byte/s</option>
         </select>
-        <span> 页面自动更新间隔：3分钟</span>
+        <span> 页面自动更新间隔：30秒</span>
     </h4>
 
 </div>

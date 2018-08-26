@@ -2,7 +2,7 @@
 import telnetlib
 import time
 import traceback
-import mod_snmp
+from mod_snmp import SnmpSet
 from Config import SWITCH_PASSWORD
 
 '''
@@ -33,9 +33,9 @@ def reboot_switch_telnet(ip):
         tn.write("y\n".encode('gbk'))
         print('Send "y"')
         if a.decode('GBK').find('This command will reboot the device') != -1:
-            a=tn.read_until("):".encode('gbk'), 60)
+            a = tn.read_until("):".encode('gbk'), 60)
             print(a)
-            if a.decode==':y':
+            if a.decode == ':y':
                 tn.close()
                 print('reboot succeed!')
                 return
@@ -54,15 +54,17 @@ def reboot_switch_telnet(ip):
         a = traceback.format_exc()
         print(a[a.find('Error:') + 7:])
 
+
 def reboot_switch_snmp(ip):
-    a=mod_snmp.SnmpSet(ip,'S2700',"reboot")# E152B不支持SNMP重启（我没找到MIB节点）
-    # print("重启交换机",ip,a)
+    a = SnmpSet(ip, 'S2700', "reboot")  # E152B不支持SNMP重启（我没找到MIB节点）
+    print("重启交换机", ip, a)
     return 0
+
 
 def reboot_switches(ips):
     for ip in ips:
         reboot_switch_snmp(ip)
-        #reboot_switch_telnet(ip)
+        # reboot_switch_telnet(ip)
 
 
 '''

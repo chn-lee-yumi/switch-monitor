@@ -19,6 +19,29 @@
     <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
     <![endif]-->
     <script>
+        function formatSeconds(value) {
+            var theTime = parseInt(value)/100;// 秒
+            var theTime1 = 0;// 分
+            var theTime2 = 0;// 小时
+            var theTime3 = 0;// 天
+            if(theTime >= 60) {
+                theTime1 = parseInt(theTime/60);
+                theTime = parseInt(theTime%60);
+                if(theTime1 >= 60) {
+                    theTime2 = parseInt(theTime1/60);
+                    theTime1 = parseInt(theTime1%60);
+                    if(theTime2 >= 24) {
+                        theTime3 = parseInt(theTime2/24);
+                        theTime2 = parseInt(theTime2%24);
+                    }
+                }
+            }
+            var result = ""+parseInt(theTime)+"秒";
+            result = ""+parseInt(theTime1)+"分"+result;
+            result = ""+parseInt(theTime2)+"小时"+result;
+            result = ""+parseInt(theTime3)+"天"+result;
+            return result;
+        }
 
         var LocString = String(window.document.location.href);
         function getQueryStr(str) {
@@ -36,7 +59,7 @@
         $(document).ready(function(){
             $("#ip").text(ip);
             chart_history = echarts.init(document.getElementById('chart_history'));
-            setInterval(refresh_page, 180000);//3分钟刷新一次
+            setInterval(refresh_page, 30000);//30秒刷新一次
             refresh_page();
             $("#unit_selected").change(function(){
                var selected=$(this).children('option:selected').val();
@@ -120,8 +143,9 @@
                 }else if(if_status=="2"){
                     if_status="DOWN";
                 }
-                up_time_string=data["if_uptime"][sw].split(':');
-                data["if_uptime"][sw]=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+parseInt(up_time_string[3])+"秒";
+                //up_time_string=data["if_uptime"][sw].split(':');
+                //data["if_uptime"][sw]=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+parseInt(up_time_string[3])+"秒";
+                data["if_uptime"][sw]=formatSeconds(data["if_uptime"][sw]);
                 if(speed_multiple==1 || speed_multiple==8){
                     table_html+="<tr><td>"+data["if_name"][sw]+"</td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+(data["if_in"][sw]*all_multiple)+"</td><td>"+(data["if_out"][sw]*all_multiple)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple)+"</td></tr>";
                 }else{
@@ -261,7 +285,7 @@
                 <option value="KB/s">KB/s</option>
                 <option value="Byte/s" selected="selected">Byte/s</option>
             </select>
-            <span> 页面自动更新间隔：3分钟</span>
+            <span> 页面自动更新间隔：30秒</span>
         </h4>
     </div>
 

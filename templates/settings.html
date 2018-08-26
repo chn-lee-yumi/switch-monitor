@@ -68,11 +68,6 @@
                     alert(data);
                 });
             });
-            $("#test_ticket").click(function(){
-                $.get("/test_ticket",function(data){
-                });
-                alert("工单提交成功，请登录helpdesk查看。");
-            });
         });
 
     </script>
@@ -95,20 +90,6 @@
             </ul>
         </nav>
         <h3 class="text-muted">广工大交换机监控</h3>
-    </div>
-
-    <h2 class="page-header">工单设置</h2>
-    <div class="panel panel-default">
-        <div class="panel-body">
-            <div class="row">
-                <p><span>交换机掉线</span>
-                    <span><input type="text" id="time_setting" style="width:60px;" class=""></input></span>
-                    <span>分钟后提交工单。</span>
-                    <span><button class="btn btn-sm btn-primary" id="update_helpdesk_time">确定</button></span>
-                    <span><button class="btn btn-sm btn-default" id="test_ticket">项目演示：提交一份工单</button></span>
-                </p>
-            </div>
-        </div>
     </div>
 
     <h2 class="page-header">微信通知设置</h2>

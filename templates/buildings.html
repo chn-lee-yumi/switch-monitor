@@ -20,36 +20,54 @@
 
     <script>
         $(document).ready(function(){
-            $("#select_building").click(function(){
-                //获取选择的楼栋
-                building_name=$("#building_selected option:selected").val();
-                //获取楼栋数据并输出一个表格
-                $.getJSON("/api/building/"+building_name,function(data){
-                    table_html="";
-                    console.log(data);
-	                for(var sw in data){
-	                    if(data[sw].down_time!='在线' && data[sw].down_time!='等待获取'){
-                            data[sw].down_time="掉线时间 "+ getLocalTime(data[sw].down_time);
-	                    }
-	                    if(data[sw].info_time!='等待获取'){
-                            data[sw].info_time=getLocalTime(data[sw].info_time);
-	                    }
-	                    if(data[sw].up_time!='等待获取' && data[sw].up_time!='获取失败'){
-	                        up_time_string=data[sw].up_time.split(':');
-	                        data[sw].up_time=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+parseInt(up_time_string[3])+"秒";
-	                    }
-	                    table_html+="<tr><td><a href='/devices?ip="+data[sw].ip+"' target='_blank'>"+data[sw].ip+"</a></td><td>"+data[sw].name+"</td><td>"+data[sw].down_time+"</td><td>"+data[sw].up_time+"</td><td>"+data[sw].model+"</td><td>"+data[sw].cpu_load+"</td><td>"+data[sw].mem_used+"</td><td>"+data[sw].temp+"</td><td>"+data[sw].desc+"</td><td>"+data[sw].info_time+"</td></tr>";
-	                }
-	                $("#switch_info_tbody").html(table_html);
-                });
+            //获取楼栋列表
+            $.getJSON("/api/buildings_list",function(data){
+                options_html=""
+                for(var a in data){
+                    options_html += "<option value=" + data[a] + ">" + data[a] + "</option>\n"
+                }
+                $("#building_selected").html(options_html);
+                refresh()
             });
+
+            $("#refresh").click(function(){
+                refresh()
+            });
+
             $("#select_ip").click(function(){
                 //获取选择的IP
                 ip=$("#ip_selected").val();
                 //打开页面
                 window.location.href="/devices?ip="+ip;
             });
+
+            setInterval(refresh, 30000);//30秒刷新一次
         });
+
+        function refresh(){
+            //获取选择的楼栋
+            building_name=$("#building_selected option:selected").val();
+            //获取楼栋数据并输出一个表格
+            $.getJSON("/api/building/"+building_name,function(data){
+                table_html="";
+                console.log(data);
+                for(var sw in data){
+                    if(data[sw].down_time!='在线' && data[sw].down_time!='等待获取'){
+                        data[sw].down_time="掉线时间 "+ getLocalTime(data[sw].down_time);
+                    }
+                    if(data[sw].info_time!='等待获取'){
+                        data[sw].info_time=getLocalTime(data[sw].info_time);
+                    }
+                    if(data[sw].up_time!='等待获取' && data[sw].up_time!='获取失败'){
+                        //up_time_string=data[sw].up_time.split(':');
+                        //data[sw].up_time=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+parseInt(up_time_string[3])+"秒";
+                        data[sw].up_time=formatSeconds(data[sw].up_time);
+                    }
+                    table_html+="<tr><td><a href='/devices?ip="+data[sw].ip+"' target='_blank'>"+data[sw].ip+"</a></td><td>"+data[sw].name+"</td><td>"+data[sw].down_time+"</td><td>"+data[sw].up_time+"</td><td>"+data[sw].model+"</td><td>"+data[sw].cpu_load+"</td><td>"+data[sw].mem_used+"</td><td>"+data[sw].temp+"</td><td>"+data[sw].desc+"</td><td>"+data[sw].info_time+"</td></tr>";
+                }
+                $("#switch_info_tbody").html(table_html);
+            });
+        }
 
         function getLocalTime(t) {
             var date = new Date(t*1000);
@@ -60,6 +78,30 @@
             m = date.getMinutes() + ':';
             s = date.getSeconds();
             return Y+M+D+h+m+s;
+        }
+
+        function formatSeconds(value) {
+            var theTime = parseInt(value)/100;// 秒
+            var theTime1 = 0;// 分
+            var theTime2 = 0;// 小时
+            var theTime3 = 0;// 天
+            if(theTime >= 60) {
+                theTime1 = parseInt(theTime/60);
+                theTime = parseInt(theTime%60);
+                if(theTime1 >= 60) {
+                    theTime2 = parseInt(theTime1/60);
+                    theTime1 = parseInt(theTime1%60);
+                    if(theTime2 >= 24) {
+                        theTime3 = parseInt(theTime2/24);
+                        theTime2 = parseInt(theTime2%24);
+                    }
+                }
+            }
+            var result = ""+parseInt(theTime)+"秒";
+            result = ""+parseInt(theTime1)+"分"+result;
+            result = ""+parseInt(theTime2)+"小时"+result;
+            result = ""+parseInt(theTime3)+"天"+result;
+            return result;
         }
 
     </script>
@@ -91,13 +133,12 @@
             <div class="row">
                 <h3>
                     <label class="label label-default">区域选择</label>
-                    <select name="building" class="input-sm" id="building_selected">
-                        {{options|safe}}
-                    </select>
-                    <button class="btn btn-sm btn-primary" id="select_building">确定/刷新</button>
+                    <select name="building" class="input-sm" id="building_selected" onchange="refresh()"></select>
+                    <button class="btn btn-sm btn-primary" id="refresh">刷新</button>
                     <label class="label label-default">直接选择设备IP</label>
                     <input type="text" id="ip_selected" style="width:120px;" class=""></input>
                     <button class="btn btn-sm btn-default" id="select_ip">确定</button>
+                    <span> 页面自动更新间隔：30秒</span>
                 </h3>
             </div>
 
