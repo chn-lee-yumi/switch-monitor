@@ -20,13 +20,16 @@ token = [''] * len(corpsecret)
 
 
 def get_token(agentid):
+    '''
     a = requests.get(
         "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=" + corpid + "&corpsecret=" + corpsecret[agentid]).text
     a = json.loads(a)
     return a['access_token']
+    '''
 
 
 def send_weixin_msg(msg, agentid):  # agentid: 2=监控程序调试信息 6=学生宿舍交换机监控
+    '''
     global token
     t1 = time.time()
     datas = '{"touser": "@all","msgtype": "text","agentid": ' + str(agentid) + ',"text":{"content": "' + msg + '"}}'
@@ -43,6 +46,7 @@ def send_weixin_msg(msg, agentid):  # agentid: 2=监控程序调试信息 6=学�
     t2 = time.time()
     print("发送推送所用的时间：%.3f秒" % (t2 - t1))
     print("*" * 30)
+    '''
 
 
 def refresh_token():

@@ -5,9 +5,9 @@ WEB_PASSWORD = '12345'  # 网页登录的密码
 WEB_PORT = 80  # http端口
 
 # =============扫描参数=============
-TCPING_TIMEOUT = 2  # tcping超时时间，秒
-SCAN_THREADS = 65
-SCAN_PROCESS = 4
+TCPING_TIMEOUT = 1  # tcping超时时间，秒
+SCAN_THREADS = 24
+SCAN_PROCESS = 5
 
 # =============监控参数=============
 HELPDESK_TIME = 5  # 微信通知的延迟，分钟
@@ -19,7 +19,7 @@ CPU_THRESHOLD = 80  # CPU过载阈值
 MEM_THRESHOLD = 80  # 内存过高阈值
 TEMP_THRESHOLD = 60  # 温度过高阈值
 DATA_RECORD_INTERVAL = 1  # 历史记录保存间隔，单位分钟
-DATA_RECORD_SAVED_DAYS = 2  # 历史记录保留天数
+DATA_RECORD_SAVED_DAYS = 3  # 历史记录保留天数
 
 # =============SNMP参数=============
 SNMP_READ_COMMUNITY = "public"

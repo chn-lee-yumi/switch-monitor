@@ -15,6 +15,12 @@ def tcpingip(ip):
     return False
 
 
-def checkswitch(ip):  # 检测交换机在线情况的函数，这里用TCP检测两次
-    if tcpingip(ip): return True
-    return tcpingip(ip)
+def checkswitch(ip):  # 检测交换机在线情况的函数
+    retry = 0
+    while retry < 3:
+        ret = tcpingip(ip)
+        if ret == True:
+            break
+        else:
+            retry += 1
+    return ret

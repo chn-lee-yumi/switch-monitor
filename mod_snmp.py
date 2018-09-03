@@ -1,6 +1,9 @@
 # encoding: utf-8
 import netsnmp
+import time
 from Config import SNMP_READ_COMMUNITY, SNMP_WRITE_COMMUNITY
+
+# TODO：更新E152B的MIB
 
 '''
 该模块用于使用SNMP获取交换机信息，调用了snmpwalk.exe，若是linux系统，修改一下SNMP_BIN_PATH即可。
@@ -31,8 +34,7 @@ E152:
 
 '''
 
-# I don't import SNMP library because none of them can run well in windows.
-# 交换机型号：S2700、E152B
+# 交换机型号：S2700、E152B、E152
 
 SNMP_OID_cpu_load_5min = "1.3.6.1.4.1.2011.6.1.1.1.4.0"
 SNMP_OID_cpu_load_5min_3 = "1.3.6.1.4.1.25506.2.6.1.1.1.1.6.82"  # 是1min的，找不到5min
@@ -52,6 +54,8 @@ S2700_mem_usage_now = "1.3.6.1.4.1.2011.5.25.31.1.1.1.1.7"  # 实体内存使用
 S2700_up_time = "1.3.6.1.4.1.2011.5.25.31.1.1.1.1.10"  # 实体启动时间
 S2700_temperature = "1.3.6.1.4.1.2011.5.25.31.1.1.1.1.11"  # 实体温度
 
+H3C_reboot = "1.2.840.10036.4.1.2011.3.6.7"  # 写1重启，待确认
+
 # iso.3.6.1.2.1.1 交换机信息
 # 1.3.6.1.2.1.1.5 设备名
 
@@ -60,7 +64,6 @@ OID_IF = "1.3.6.1.2.1.2.2.1"
 OID_IP = "1.3.6.1.4.1.2011.5.25.41.1.2.1.1"  # 接口IP
 OID_IF_INDEX = "1.3.6.1.2.1.2.2.1.1"  # 接口索引
 
-
 # iso.3.6.1.2.1.2.2.1.2.x 接口名
 # iso.3.6.1.2.1.2.2.1.8.x 接口状态，1为up，0为down
 # iso.3.6.1.2.1.2.2.1.10.x 入方向总字节数
@@ -68,6 +71,23 @@ OID_IF_INDEX = "1.3.6.1.2.1.2.2.1.1"  # 接口索引
 # TODO：加入错误包统计
 
 # TODO: 根据型号使用对应oid，oid从数据库（新建一个名字为mib的数据表）读取。（网页要提供修改oid的页面）
+
+'''
+def SnmpWalk(ip, model, info):
+    retry = 0
+    times = 2
+    # tmp_time = time.time()
+    while retry < times:
+        ret = _SnmpWalk(ip, model, info)
+        if ret != "获取失败":
+            break
+        else:
+            retry += 1
+    # if ret == "获取失败":
+    #    print(ip, info, "失败", time.time() - tmp_time)
+    return ret
+'''
+
 
 def SnmpWalk(ip, model, info):
     return_list = False
@@ -107,31 +127,45 @@ def SnmpWalk(ip, model, info):
     if info == "if_descr": oid = "1.3.6.1.2.1.31.1.1.1.18"  # 接口描述
     if info == "name": oid = "1.3.6.1.2.1.1.5"  # 设备名
 
+    # pip3 install python3-netsnmp
+    tmp_time = time.time()
+    b = netsnmp.snmpwalk('.' + oid, DestHost=ip, Version=2, Community=SNMP_READ_COMMUNITY, Timeout=500000, Retries=3)
+    # print("snmpwalk用时," + ip + "," + info + "," + str(round(time.time() - tmp_time, 4)))
+    if len(b) == 0:
+        if time.time() - tmp_time < 0.99:
+            return "设备不支持"
+        else:  # timeout
+            return "获取失败"
+    if return_list == True:
+        return max(map(lambda x: int(x.decode('utf-8')), b))
+    if len(b) == 1:
+        return b[0].decode('utf-8')
+    return list(map(lambda x: x.decode('utf-8'), b))
+
+    '''
+    # pip3 install netsnmp-py
     try:
-        b = netsnmp.snmpwalk('.' + oid, DestHost=ip, Version=2, Community=SNMP_READ_COMMUNITY)
+        # tmp_time = time.time()
+        with netsnmp.SNMPSession(ip, SNMP_READ_COMMUNITY, timeout=1, retries=3) as ss:
+            b = [response for response in ss.walk(['.' + oid])]
+        # print("snmpwalk用时," + ip + "," + info + "," + str(round(time.time() - tmp_time, 4)))
+        # print(b)
         if len(b) == 0:
-            return "获取失败"
+            return "设备不支持"
         if return_list == True:
-            return max(map(lambda x: int(x.decode('utf-8')), b))
+            return max(map(lambda x: int(x[2]), b))  # 仅返回最大值
         if len(b) == 1:
-            return b[0].decode('utf-8')
-        return list(map(lambda x: x.decode('utf-8'), b))
-    except:
-        try:
-            b = netsnmp.snmpwalk('.' + oid, DestHost=ip, Version=2, Community=SNMP_READ_COMMUNITY)
-            if len(b) == 0:
-                return "获取失败"
-            if return_list == True:
-                return max(map(lambda x: int(x.decode('utf-8')), b))
-            if len(b) == 1:
-                return b[0].decode('utf-8')
-            return list(map(lambda x: x.decode('utf-8'), b))
-        except:
-            return "获取失败"
+            return b[0][2].replace('"', '')  # 将双引号替换掉，因为字符串会带双引号
+        return list(map(lambda x: x[2].replace('"', ''), b))  # 返回一整个列表
+    except:  # Timeout error
+        return "获取失败"
+    '''
 
 
-def SnmpSet(ip, model, info):
-    pass
+def SnmpSet(ip, model, info):  # TODO:继续完善
+    if info == "reboot" and model.find("S") == 0: oid = S2700_reboot
+    if info == "reboot" and model.find("E") == 0: oid = H3C_reboot
+    netsnmp.snmpset(['.' + oid, 0, 1], DestHost=ip, Version=2, Community=SNMP_WRITE_COMMUNITY, Timeout=1000000)
     '''
     if info == "reboot" and model == "S2700":
         oid = "1.3.6.1.4.1.2011.5.25.19.1.3.2.0"

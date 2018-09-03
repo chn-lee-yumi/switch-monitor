@@ -2,7 +2,7 @@
 
 - 2016年“数字校园”学生科技项目。（已结题，但仍在持续更新）  
 - 由于权限问题，目前只监控大学城校区学生宿舍的交换机和生活区核心交换机。未对教学区和其它校区的交换机进行适配。  
-- 最新版本为5.2.0。
+- 最新版本为5.3.0。
 - 使用GPLv3开源协议。
 
 # 部署说明
@@ -24,7 +24,7 @@
 
 ```shell
 # 需要root权限
-apt-get install python3 python3-pip
+apt-get install python3 python3-pip snmp
 pip3 install flask python3-netsnmp
 python3 SwitchMonitor.py # 运行
 ```
@@ -32,30 +32,34 @@ python3 SwitchMonitor.py # 运行
 ## 参数说明
 
 - 必须要修改的参数：（Config.py）
- - web_username：网页用户名
- - web_password：网页登录密码
- - switch_password：交换机密码
- - corpid：微信开放平台corpid
- - corpsecret：微信开放平台corpsecret
- - SNMP_COMMUNITY：SNMP读写密码
+  - web_username：网页用户名
+  - web_password：网页登录密码
+  - switch_password：交换机密码
+  - corpid：微信开放平台corpid
+  - corpsecret：微信开放平台corpsecret
+  - SNMP_COMMUNITY：SNMP读写密码
 - 默认报警参数（详见Config.py）
- - 交换机掉线5分钟后发送微信通知。
- - 每天下午18点发送统计信息。每天凌晨4点自动重启过载的交换机。
- - CPU过载阈值：80%
- - 内存过高阈值：80%
- - 温度过高阈值：60℃
+  - 交换机掉线5分钟后发送微信通知。
+  - 每天下午18点发送统计信息。每天凌晨4点自动重启过载的交换机。
+  - CPU过载阈值：80%
+  - 内存过高阈值：80%
+  - 温度过高阈值：60℃
 
 # 更新日志
 
+- v5.3.0：
+  - 部分代码重构
+  - 现在使用多进程进行扫描，充分发挥多核性能
+  - 修复一些BUG
 - v5.2.0：
- - 部分代码重构
- - 更新SNMP模块，提高速度
- - 优化网页交互体验
- - 修复一些BUG
+  - 部分代码重构
+  - 更新SNMP模块，提高速度
+  - 优化网页交互体验
+  - 修复一些BUG
 - v5.1.0：
- - 整合部分参数到配置文件
- - 性能调优，加快启动速度，减少CPU占用。
- - 现在交换机端口历史流量页面修改单位后不会重新获取数据，提高了相应速度。
- - 修复一些小BUG
+  - 整合部分参数到配置文件
+  - 性能调优，加快启动速度，减少CPU占用。
+  - 现在交换机端口历史流量页面修改单位后不会重新获取数据，提高了相应速度。
+  - 修复一些小BUG
 - v5.0.0:
- - 重构代码。
+  - 重构代码。
