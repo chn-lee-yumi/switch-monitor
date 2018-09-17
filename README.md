@@ -2,7 +2,6 @@
 
 - 2016年“数字校园”学生科技项目。（已结题，但仍在持续更新）  
 - 由于权限问题，目前只监控大学城校区学生宿舍的交换机和生活区核心交换机。未对教学区和其它校区的交换机进行适配。  
-- 最新版本为5.3.0。
 - 使用GPLv3开源协议。
 
 # 部署说明
@@ -10,43 +9,112 @@
 ## 设备
 
 - 推荐配置：
- - CPU：4核
- - 内存：1GB
-- 可运行在树莓派2B上。
+  - CPU：amd64，2核，>2GHz
+  - 内存：1GB
+
+- 设备和性能
+   - 云主机，E7-4820 v3，1核，达到轮询一次60s的性能时CPU使用率约75%（v5.4.0）
+   - 在树莓派2B+超频到1020MHz的情况下，CPU满载可以达到轮询一次60s的性能（v5.3.0）（该设备存在CPU瓶颈）
+   - 在树莓派3B默认频率1200MHz的情况下，达到轮询一次60s的性能时CPU使用率约50%（v5.3.0）
+   - 最短轮询时间取决于交换机的CPU。当扫描线程数等于交换机总数的时候，有大量交换机CPU过载，轮询间隔约15s。
 
 ## 系统环境
 
 - 操作系统：Linux
 - 环境：Python3
-- 依赖包：flask、python3-netsnmp
+- 依赖包：flask、python3-netsnmp、psutil、requests
 
-## Debian系统部署
+## Debian系统部署（开发环境）
 
 ```shell
 # 需要root权限
 apt-get install python3 python3-pip snmp
-pip3 install flask python3-netsnmp
+pip3 install flask python3-netsnmp psutil requests
+cd SwitchMonitor # 切换到监控所在目录
 python3 SwitchMonitor.py # 运行
+```
+
+## CentOS系统部署（开发环境）
+
+```shell
+# 需要root权限
+yum install python34 python34-pip python34-devel
+pip3 install flask python3-netsnmp psutil requests
+cd SwitchMonitor # 切换到监控所在目录
+python3.4 SwitchMonitor.py # 运行
+```
+
+## 生成环境部署（Debian+Nginx）
+
+```shell
+# 假设Nginx已经安装好了
+# 需要root权限
+apt-get install python3 python3-pip snmp
+apt-get install uwsgi uwsgi-plugin-python3
+pip3 install virtualenv
+cp -r SwitchMonitor /var/www # 复制监控目录
+cd /var/www/SwitchMonitor
+# 配置虚拟环境
+virtualenv venv
+. venv/bin/activate
+pip3 install flask python3-netsnmp psutil requests
+# 复制配置文件（如果存在default配置文件，需要先删除）
+ln -s /var/www/SwitchMonitor/SwitchMonitor_Nginx.conf /etc/nginx/conf.d/
+# 启动uwsgi，uid=1000
+uwsgi --ini /var/www/SwitchMonitor/SwitchMonitor_uwsgi.ini --uid 1000 -s /tmp/SwitchMonitor.sock --plugin python3
+# 重新加载Nginx配置
+nginx -s reload
+```
+
+## 生成环境部署（CentOS+Nginx）
+
+```shell
+# 假设Nginx已经安装好了
+# 需要root权限
+yum install python34 python34-pip python34-devel
+yum install uwsgi uwsgi-plugin-python3
+pip3 install virtualenv
+cp -r SwitchMonitor /var/www # 复制监控目录
+cd /var/www/SwitchMonitor
+# 配置虚拟环境
+virtualenv venv
+. venv/bin/activate
+pip3 install flask python3-netsnmp psutil requests
+# 复制配置文件（如果存在default配置文件，需要先删除）
+ln -s /var/www/SwitchMonitor/SwitchMonitor_Nginx.conf /etc/nginx/conf.d/
+# 启动uwsgi，uid=1000
+uwsgi --ini /var/www/SwitchMonitor/SwitchMonitor_uwsgi.ini --uid 1000 -s /tmp/SwitchMonitor.sock --plugin python3 --enable-threads
+# 重新加载Nginx配置
+nginx -s reload
 ```
 
 ## 参数说明
 
 - 必须要修改的参数：（Config.py）
-  - web_username：网页用户名
-  - web_password：网页登录密码
-  - switch_password：交换机密码
+  - WEB_USERNAME：网页用户名
+  - WEB_PASSWORD：网页登录密码
+  - SWITCH_PASSWORD：交换机密码
   - corpid：微信开放平台corpid
   - corpsecret：微信开放平台corpsecret
-  - SNMP_COMMUNITY：SNMP读写密码
+  - SNMP_READ_COMMUNITY：SNMP读取密码
+  - SNMP_WRITE_COMMUNITY：SNMP写入密码
 - 默认报警参数（详见Config.py）
   - 交换机掉线5分钟后发送微信通知。
   - 每天下午18点发送统计信息。每天凌晨4点自动重启过载的交换机。
   - CPU过载阈值：80%
   - 内存过高阈值：80%
   - 温度过高阈值：60℃
+- 其它较为重要的参数
+   - SCAN_THREADS：每个扫描进程的扫描线程数
+   - SCAN_PROCESS：扫描进程数
+   - 参考值：对于学校741台交换机，达到60秒一个轮询需要的线程数为80（我的配置为20*4）
 
 # 更新日志
 
+- v5.4.0：
+  - 优化图表显示
+  - 优化数据库写入和扫描任务发放的代码
+  - 修复一些BUG
 - v5.3.0：
   - 部分代码重构
   - 现在使用多进程进行扫描，充分发挥多核性能

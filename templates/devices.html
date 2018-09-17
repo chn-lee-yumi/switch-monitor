@@ -193,14 +193,16 @@
                         show: true,
                         right: '4%',
                         feature: {
-                            dataZoom: {},
+                            dataZoom: {
+                                yAxisIndex: 'none'
+                            },
                             restore: {},
                             saveAsImage: {}
                         }
                     },
                     grid: {
-                        left: '2%',
-                        right: '5%',
+                        left: '0%',
+                        right: '4%',
                         bottom: '2%',
                         containLabel: true
                     },
@@ -220,6 +222,7 @@
                         {
                             type : 'value',
                             name : '温度',
+                            min : 0,
                             max : 100
                         }
                     ],
@@ -228,20 +231,23 @@
                             name:'CPU使用率',
                             type:'line',
                             data:cpu_his,
-                            showSymbol: false
+                            showSymbol: false,
+                            sampling: 'average'
                         },
                         {
                             name:'内存使用率',
                             type:'line',
                             data:mem_his,
-                            showSymbol: false
+                            showSymbol: false,
+                            sampling: 'average'
                         },
                         {
                             name:'温度',
                             type:'line',
                             yAxisIndex: 1,
                             data:temp_his,
-                            showSymbol: false
+                            showSymbol: false,
+                            sampling: 'average'
                         }
                     ]
                 };

@@ -126,13 +126,15 @@
                     show: true,
                     right: '4%',
                     feature: {
-                        dataZoom: {},
+                        dataZoom: {
+                                yAxisIndex: 'none'
+                        },
                         restore: {},
                         saveAsImage: {}
                     }
                 },
                 grid: {
-                    left: '2%',
+                    left: '0%',
                     right: '5%',
                     bottom: '2%',
                     containLabel: true
@@ -154,13 +156,15 @@
                         name:'流入速率',
                         type:'line',
                         data:in_speed,
-                        showSymbol: false
+                        showSymbol: false,
+                        sampling: 'average'
                     },
                     {
                         name:'流出速率',
                         type:'line',
                         data:out_speed,
-                        showSymbol: false
+                        showSymbol: false,
+                        sampling: 'average'
                     }
                 ]
             };
@@ -186,8 +190,9 @@
 <body>
 
 <div class="container-fluid">
+
     <div class="row">
-        <h2 class="form-search-heading">端口历史流量速率信息</h2>
+        <h2>端口历史流量速率信息</h2>
     </div>
 
     <div class="row">
@@ -196,7 +201,7 @@
 
     <div class="row">
         <div class="col-sm-12 col-xm-12">
-            <div id="chart_history" style="width:100%;height:600px;float:left;"></div>
+            <div id="chart_history" style="width:100%;height:540px;float:left;"></div>
         </div>
     </div>
 
@@ -213,6 +218,13 @@
         </select>
         <span> 页面自动更新间隔：30秒</span>
     </h4>
+
+    <!--
+    <div class="alert alert-info" id="warnings-div">
+        <p>流量速率最小值最大值平均值（不知道是否有必要，因为最小值最大值一眼就能看出来，平均值好像并不关心）</p>
+    </div>
+    -->
+
 
 </div>
 

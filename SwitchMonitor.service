@@ -1,0 +1,17 @@
+# /usr/lib/systemd/system/SwitchMonitor.service
+# systemctl start SwitchMonitor
+# systemctl stop SwitchMonitor
+
+[Unit]
+Description = SwitchMonitor
+After = SwitchMonitor.service
+
+[Service]
+Type = simple
+User = root
+Group = root
+ExecStart = /home/monitor/SwitchMonitor/SwitchMonitor.sh
+ExecStop = /usr/bin/killall python3
+
+[Install]
+WantedBy = multi-user.target

@@ -90,6 +90,7 @@ def SnmpWalk(ip, model, info):
 
 
 def SnmpWalk(ip, model, info):
+    # print(ip, model, info)
     return_list = False
     oid = ''
     if info == "cpu_load" and model.find("S") == 0:
