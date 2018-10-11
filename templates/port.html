@@ -126,9 +126,6 @@
                     show: true,
                     right: '4%',
                     feature: {
-                        dataZoom: {
-                                yAxisIndex: 'none'
-                        },
                         restore: {},
                         saveAsImage: {}
                     }
@@ -139,6 +136,16 @@
                     bottom: '2%',
                     containLabel: true
                 },
+                dataZoom: [
+                    {
+                        type: 'slider',
+                        start: 85,
+                        end: 100
+                    },
+                    {
+                        type: 'inside'
+                    }
+                ],
                 xAxis : [
                     {
                         type : 'time',
@@ -207,14 +214,14 @@
 
     <h4><span>速率单位：</span>
         <select name="unit" class="input-sm" id="unit_selected">
-            <option value="Gbps">Gbps</option>
+            <option value="Gbps" selected="selected">Gbps</option>
             <option value="Mbps">Mbps</option>
             <option value="Kbps">Kbps</option>
             <option value="bps">bps</option>
             <option value="GB/s">GB/s</option>
             <option value="MB/s">MB/s</option>
             <option value="KB/s">KB/s</option>
-            <option value="Byte/s" selected="selected">Byte/s</option>
+            <option value="Byte/s">Byte/s</option>
         </select>
         <span> 页面自动更新间隔：30秒</span>
     </h4>

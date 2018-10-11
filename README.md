@@ -44,7 +44,7 @@ cd SwitchMonitor # 切换到监控所在目录
 python3.4 SwitchMonitor.py # 运行
 ```
 
-## Debian+Nginx部署（生产环境）
+## 生成环境部署（Debian+Nginx）
 
 ```shell
 # 假设Nginx已经安装好了
@@ -66,7 +66,7 @@ uwsgi --ini /var/www/SwitchMonitor/SwitchMonitor_uwsgi.ini --uid 1000 -s /tmp/Sw
 nginx -s reload
 ```
 
-## CentOS+Nginx部署（生产环境）
+## 生成环境部署（CentOS+Nginx）
 
 ```shell
 # 假设Nginx已经安装好了
@@ -111,6 +111,8 @@ nginx -s reload
 
 # 更新日志
 
+- v5.4.1：
+  - 优化图表显示
 - v5.4.0：
   - 优化图表显示
   - 优化数据库写入和扫描任务发放的代码
