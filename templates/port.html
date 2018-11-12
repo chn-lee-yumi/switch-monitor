@@ -32,8 +32,8 @@
         var port=getQueryStr("port");
 
         var flow_data;
-        var speed_multiple=1;
-        var selected='Bytes/s';
+        var selected="Gbps";//默认Gbps
+        var speed_multiple=8/(1024*1024*1024);
         $(document).ready(function(){
             $("#unit_selected").change(function(){
                selected=$(this).children('option:selected').val();
@@ -91,7 +91,7 @@
             });
             $("#port").text(port.replace(/_/,'\/').replace(/_/,'\/'));//不知道为什么只replace一次的时候只有一个下划线被转换
             chart_history = echarts.init(document.getElementById('chart_history'));
-            setInterval(refresh_page, 30000);//30秒刷新一次
+            setInterval(refresh_page, 60000);//60秒刷新一次
             refresh_page();
         });
 
@@ -223,7 +223,7 @@
             <option value="KB/s">KB/s</option>
             <option value="Byte/s">Byte/s</option>
         </select>
-        <span> 页面自动更新间隔：30秒</span>
+        <span> 页面自动更新间隔：1分钟</span>
     </h4>
 
     <!--

@@ -12,6 +12,7 @@ User = root
 Group = root
 ExecStart = /home/monitor/SwitchMonitor/SwitchMonitor.sh
 ExecStop = /usr/bin/killall python3
+# TODO:不使用killall，改用pid
 
 [Install]
 WantedBy = multi-user.target

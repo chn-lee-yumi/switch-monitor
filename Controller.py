@@ -1,7 +1,19 @@
 # encoding: utf-8
 
 # TODO：严重的BUG：在尝试使用uwsgi部署的时候，执行到扫描线程的pick = pickle.dumps(switch)时会卡住，原因未知
-# TODO：监控所有端口的流量
+'''
+# TODO：
+监控所有端口的流量，端口当前速率大于最大速率的80%就报警
+前端页面增加是否自动更新的复选框
+端口流量自适应
+学校E152B系统版本更新（旧版本存在BUG）
+完成E152B适配（重启功能）
+配置页面功能：
+    增加查看和清除日志功能
+    设置页面加参数：TCPING_TIMEOUT SCAN_THREADS SCAN_PROCESS SEND_MSG_DELAY CPU_THRESHOLD MEM_THRESHOLD  TEMP_THRESHOLD  DATA_RECORD_SAVED_DAYS  SCAN_REBOOT_HOURS
+    设置页面加修改密码功能
+    加交换机自动重启开关
+'''
 import sqlite3
 import threading
 import platform
@@ -14,9 +26,9 @@ from mod_reboot_switch import *
 from mod_snmp import *
 from mod_weixin import *
 
-from Config import WEB_USERNAME, WEB_PASSWORD, WEB_PORT, HELPDESK_TIME, WEIXIN_STAT_TIME_H, WEIXIN_STAT_TIME_M, \
-    SW_REBOOT_TIME_H, SW_REBOOT_TIME_M, CPU_THRESHOLD, MEM_THRESHOLD, TEMP_THRESHOLD, DATA_RECORD_SAVED_DAYS, \
-    SCAN_THREADS, SCAN_PROCESS, SCAN_REBOOT_HOURS
+from Config import USE_HTTPS, ADMIN_USERNAME, ADMIN_PASSWORD, WEB_USERNAME, WEB_PASSWORD, WEB_PORT, SEND_MSG_DELAY, \
+    WEIXIN_STAT_TIME_H, WEIXIN_STAT_TIME_M, SW_REBOOT_TIME_H, SW_REBOOT_TIME_M, CPU_THRESHOLD, MEM_THRESHOLD, \
+    TEMP_THRESHOLD, DATA_RECORD_SAVED_DAYS, SCAN_THREADS, SCAN_PROCESS, SCAN_REBOOT_HOURS, SNMP_MODE
 
 global switches, buildings_list, switch_ping_num, switch_snmp_num, scan_processes, ip_queue, recive_queue, write_queue
 
@@ -54,12 +66,9 @@ def start_switch_monitor():
     refresh_token()  # 刷新微信token
 
     # 从文件读取交换机列表 TODO:直接从数据库读取交换机列表，用户可以上传csv或网页设置来修改交换机列表
-    file_object = open('switches_list.csv', mode='r', encoding='utf-8')
-    try:
-        file_object.readline()  # 第一行是标题，我们不需要
-        switches_list = file_object.read()
-    finally:
-        file_object.close()
+    with open('switches_list.csv', mode='r', encoding='utf-8') as f:
+        f.readline()  # 第一行是标题，我们不需要
+        switches_list = f.read()
     switches_list = switches_list.strip().split("\n")  # 每行是一台交换机，包含IP、型号、楼栋、描述
 
     # 初始化交换机数据
@@ -133,13 +142,11 @@ def start_switch_monitor():
         conn.close()
     print("初始化历史记录数据库用时：", time.time() - tmp_time)
 
-    # 初始化监控端口列表 TODO:参考交换机列表的读取
+    # 初始化监控端口列表
     global port_list
-    file_object = open('port_list.txt', mode='r', encoding='utf-8')
-    try:
-        port_list = file_object.read().split()
-    finally:
-        file_object.close()
+    with open('port_list.csv', mode='r', encoding='utf-8') as f:
+        f.readline()  # 第一行是标题，我们不需要
+        port_list = f.read().strip().split("\n")  # 每行是一个端口，包含交换机IP、端口、描述
 
     # 检查流量速率记录数据库
     conn = sqlite3.connect("flow_history.db")
@@ -148,12 +155,14 @@ def start_switch_monitor():
     cursor.execute('PRAGMA synchronous = OFF')  # 初始化时关闭写同步提高速度
     try:
         for port in port_list:
-            cursor.execute("select * from sqlite_master where type = 'table' and name = '" + port + "'")  # 检查有没有此端口的表
+            port_name = port[0:port.rfind(",")]
+            cursor.execute(
+                "select * from sqlite_master where type = 'table' and name = '" + port_name + "'")  # 检查有没有此端口的表
             values = cursor.fetchall()
             if len(values) == 0:
                 # 没有此端口的表，新建一个
                 cursor.execute(
-                    "CREATE TABLE '" + port + "' (timestamp int(10),in_speed int(20),out_speed int(20))")
+                    "CREATE TABLE '" + port_name + "' (timestamp int(10),in_speed int(20),out_speed int(20))")
     finally:
         conn.commit()
         cursor.close()
@@ -178,8 +187,9 @@ def start_switch_monitor():
     # 启动数据记录器
     threading.Thread(target=data_history_recoder, name="线程_数据记录器", args=(write_queue,)).start()
 
-    # 启动内存监视器（由于SNMP库存在内存泄漏，需要定时重启扫描进程）
-    threading.Thread(target=memory_supervisior, name="线程_内存监视器", args=(ip_queue, recive_queue,)).start()
+    # 启动内存监视器（由于SNMP库存在内存泄漏，需要定时重启扫描进程。如果使用bin模式，则不需要）
+    if SNMP_MODE == "lib":
+        threading.Thread(target=memory_supervisior, name="线程_内存监视器", args=(ip_queue, recive_queue,)).start()
 
     # 完成
     print("初始化完成。监控程序已启动。")
@@ -249,6 +259,7 @@ class Switch(object):
         self.if_out = []
         self.if_in_speed = []
         self.if_out_speed = []
+        self.if_speed = 0  # 端口带宽，单位Mbps，一般端口带宽都是固定的
 
 
 def scan_process(ip_queue, recive_queue):
@@ -290,12 +301,14 @@ def scan_switch(ip_queue, recive_queue):  # 扫描线程
             if switch.up_time != "获取失败":  # 如果up_time能正确获取才获取其它信息。如果up_time不能正确获取，其它信息也不可能获取到。
                 # 首先获取if_name，且只用获取一次
                 if len(switch.if_name) == 0:  # 下面这些也只用获取一次
+                    # TODO：在bin模式有小概率会丢包（SNMP基于UDP），这里仅处理了if_name这一项，其它未作处理。
                     switch.if_index = SnmpWalk(switch.ip, switch.model, "if_index")
                     switch.if_descr = SnmpWalk(switch.ip, switch.model, "if_descr")
                     switch.if_uptime = SnmpWalk(switch.ip, switch.model, "if_uptime")
                     switch.if_ip = SnmpWalk(switch.ip, switch.model, "if_ip")
                     switch.if_ipindex = SnmpWalk(switch.ip, switch.model, "if_ipindex")
                     switch.if_ipmask = SnmpWalk(switch.ip, switch.model, "if_ipmask")
+                    switch.if_speed = SnmpWalk(switch.ip, switch.model, "if_speed")
                     switch.name = SnmpWalk(switch.ip, switch.model, "name")
                     for a in range(0, 5):
                         tmp_if_name = SnmpWalk(switch.ip, switch.model, "if_name")
@@ -381,7 +394,8 @@ def data_reciver(recive_queue, write_queue):  # 数据接收线程
                 if switch.num == len(switches) - 1 and not isinstance(switches[switch.num].info_time, str):
                     write_log("扫描一轮所需时间" + str(switch.info_time - switches[switch.num].info_time))  # BUG：有时候会0.0
                 elif switch.num == len(switches) - 1 and isinstance(switches[switch.num].info_time, str):  # 第一轮的时间
-                    write_log("扫描一轮所需时间" + str(switch.info_time - start_time))
+                    if switch.info_time != "等待获取":
+                        write_log("扫描一轮所需时间" + str(switch.info_time - start_time))
                 switches[switch.num] = switch
             except:
                 print("数据接收器报错，switch_datas=", switch_datas)
@@ -421,13 +435,16 @@ def data_history_recoder(write_queue):
             for switch in _switches:
                 cursor.execute("DELETE FROM '" + switch.ip + "' WHERE timestamp <= " + timestamp)
             for port in port_list:
-                cursor_flow.execute("DELETE FROM '" + port + "' WHERE timestamp <= " + timestamp)
+                port_name = port[0:port.rfind(",")]
+                cursor_flow.execute("DELETE FROM '" + port_name + "' WHERE timestamp <= " + timestamp)
         # 下面开始写入当前时间的数据
         # 写入交换机数据
         try:
             for switch in _switches:
-                cursor.execute("INSERT INTO '" + switch.ip + "' VALUES ('" + str(int(switch.info_time)) + "', '" + str(
-                    switch.cpu_load) + "', '" + str(switch.mem_used) + "', '" + str(switch.temp) + "')")
+                if not isinstance(switch.info_time, str):
+                    cursor.execute(
+                        "INSERT INTO '" + switch.ip + "' VALUES ('" + str(int(switch.info_time)) + "', '" + str(
+                            switch.cpu_load) + "', '" + str(switch.mem_used) + "', '" + str(switch.temp) + "')")
         finally:
             conn.commit()
             cursor.close()
@@ -436,8 +453,9 @@ def data_history_recoder(write_queue):
         # 写入端口数据
         try:
             for port in port_list:
+                port_name = port[0:port.rfind(",")]
                 switch_info = port.split(',')
-                if len(switch_info) == 2:  # 排除空行或不正常的行
+                if len(switch_info) == 3:  # 排除空行或不正常的行
                     switch_ip = switch_info[0]
                     switch_port = switch_info[1]
                     for switch in _switches:
@@ -446,15 +464,15 @@ def data_history_recoder(write_queue):
                             if port_index != -1:
                                 if len(switch.if_out_speed) != 0:
                                     cursor_flow.execute(
-                                        "INSERT INTO '" + port + "' VALUES ('" + str(
+                                        "INSERT INTO '" + port_name + "' VALUES ('" + str(
                                             int(switch.info_time)) + "', '" + str(
                                             switch.if_in_speed[port_index]) + "', '" + str(
                                             switch.if_out_speed[port_index]) + "')")
                             else:
                                 write_log("Port not found: " + port)
                             break
-                else:
-                    pass
+                    else:
+                        pass
         finally:
             conn_flow.commit()
             cursor_flow.close()
@@ -490,25 +508,38 @@ def data_supervisor():  # 监控线程。
                 if switch.down_time == "在线":
                     if switch.ip in devices_alerted:
                         devices_alerted.remove(switch.ip)
-                        send_weixin_msg("[监控消息]交换机复活啦！\n" + "IP:" + switch.building_belong + switch.ip, 6)  # 发送消息
+                        send_weixin_msg("[监控消息]交换机复活啦！\n" + switch.building_belong + switch.ip, 6)  # 发送消息
                         write_log(switch.ip + "上线")
-                elif (time.time() - switch.down_time) / 60 >= HELPDESK_TIME and not (
+                elif (time.time() - switch.down_time) / 60 >= SEND_MSG_DELAY and not (
                         switch.ip in devices_alerted):
                     send_weixin_msg("[监控消息]交换机炸了！\n" + switch.building_belong + switch.ip, 6)  # 发送消息
                     write_log(switch.ip + "掉线")
                     devices_alerted.append(switch.ip)
             except:
                 write_log(switch.ip + " switch.down_time " + switch.down_time)
-        time.sleep(1)
+        sleep60 = False
         if time.localtime()[3] == WEIXIN_STAT_TIME_H and time.localtime()[4] == WEIXIN_STAT_TIME_M:  # 每天发送统计信息
             send_weixin_stat()
-            time.sleep(60)
+            sleep60 = True
         if time.localtime()[3] == SW_REBOOT_TIME_H and time.localtime()[4] == SW_REBOOT_TIME_M:  # 每天重启过载交换机
             reboot_overload_sw()
+            sleep60 = True
+        # 内存Debug
+        if time.localtime()[4] == 0 and time.localtime()[3] % 6 == 0:  # 每6小时发送内存信息
+            server_info = {}
+            virtual_memory = psutil.virtual_memory()
+            server_info["mem_total"] = round(virtual_memory[0] / 1024 / 1024, 2)
+            server_info["mem_used"] = round(virtual_memory[3] / 1024 / 1024, 2)
+            server_info["mem_used_2"] = round(server_info["mem_used"] * 100 / server_info["mem_total"], 2)
+            send_weixin_msg("服务器内存使用率：" + str(server_info["mem_used_2"] + "%"), 2)
+            sleep60 = True
+        if sleep60 == True: time.sleep(60)
+        time.sleep(1)
 
 
 def send_weixin_stat():
-    msg = "[监控消息]今日交换机状态统计\n"
+    msg_src = "[监控消息]今日交换机状态统计\n"
+    msg = msg_src
     down = 0
     cpu_overload = 0
     men_overload = 0
@@ -540,11 +571,12 @@ def send_weixin_stat():
                 high_temp += 1
         except:
             pass
-    msg += "共" + str(down) + "台交换机掉线\n"
-    msg += "共" + str(cpu_overload) + "台交换机CPU使用率过高\n"
-    msg += "共" + str(men_overload) + "台交换机内存使用率过高\n"
-    msg += "共" + str(high_temp) + "台交换机过热"
-    send_weixin_msg(msg, 6)
+    if down > 0: msg += "共" + str(down) + "台交换机掉线\n"
+    if cpu_overload > 0: msg += "共" + str(cpu_overload) + "台交换机CPU使用率过高\n"
+    if men_overload > 0: msg += "共" + str(men_overload) + "台交换机内存使用率过高\n"
+    if high_temp > 0: msg += "共" + str(high_temp) + "台交换机过热\n"
+    if msg == msg_src: msg += "所有交换机正常！"
+    send_weixin_msg(msg.rstrip(), 6)  # 用rstrip去掉最后的换行符
 
 
 def reboot_overload_sw():  # 每天自动重启过载交换机
@@ -581,11 +613,8 @@ def write_db(ip, column, data):
 
 def write_log(text):
     print(text)
-    file_object = open('log.txt', mode='a', encoding='utf-8')
-    try:
-        file_object.write(time.strftime('[%Y-%m-%d %H:%M:%S] ', time.localtime()) + text + "\n")
-    finally:
-        file_object.close()
+    with open('log.txt', mode='a', encoding='utf-8') as f:
+        f.write(time.strftime('[%Y-%m-%d %H:%M:%S] ', time.localtime()) + text + "\n")
 
 
 app = Flask(__name__)
@@ -593,7 +622,10 @@ app.secret_key = 'nia_sbA0Zr98j/3yX R~XHH!jmN]LWX/,?RT(*&^%$_W'
 
 
 def startweb():
-    app.run(host='0.0.0.0', port=WEB_PORT)
+    if USE_HTTPS:
+        app.run(host='0.0.0.0', port=WEB_PORT, ssl_context='adhoc')  # 如果需要用自己的证书，则修改ssl_context
+    else:
+        app.run(host='0.0.0.0', port=WEB_PORT)
 
 
 def data_stream(data):  # Flask框架返回大量数据时，使用数据流的方式
@@ -621,7 +653,12 @@ def login():
     if request.method == 'POST':
         form_username = request.form['username']
         form_password = request.form['password']
+        login = False
         if form_username == WEB_USERNAME and form_password == WEB_PASSWORD:
+            login = True
+        if form_username == ADMIN_USERNAME and form_password == ADMIN_PASSWORD:
+            login = True
+        if login == True:
             session['username'] = request.form['username']
             return redirect(url_for('index'))
         else:
@@ -672,20 +709,14 @@ def port():
         return "未登录！"
 
 
-# 工具页
-@app.route('/tools')
-def tools():
-    if 'username' in session:
-        return render_template('tools.html')
-    else:
-        return "未登录！"
-
-
 # 设置页
 @app.route('/settings')
 def settings():
     if 'username' in session:
-        return render_template('settings.html')
+        if session['username'] == ADMIN_USERNAME:
+            return render_template('settings.html')
+        else:
+            return "权限不足！"
     else:
         return "未登录！"
 
@@ -737,7 +768,7 @@ def api_warnings():
     return json.dumps(info, ensure_ascii=False)
 
 
-# API，返回CPU统计数据
+# API，返回属性数据
 @app.route('/api/<attr>')
 def api_stat(attr):
     global port_list
@@ -768,7 +799,7 @@ def api_devices(ip):
                     if_ip.append(' ')
             info = {"if_name": switch.if_name, "if_descr": switch.if_descr, "if_status": switch.if_status,
                     "if_uptime": switch.if_uptime, "if_ip": if_ip, "if_in": switch.if_in, "if_out": switch.if_out,
-                    "if_in_speed": switch.if_in_speed, "if_out_speed": switch.if_out_speed}
+                    "if_in_speed": switch.if_in_speed, "if_out_speed": switch.if_out_speed, "if_speed": switch.if_speed}
     return json.dumps(info, ensure_ascii=False)
 
 
@@ -791,7 +822,7 @@ def api_history(ip):
         his_dict[a[0]] = {'cpu': a[1], 'mem': a[2], 'temp': a[3]}
     # print("查询历史数据消耗时间：", time.time() - tmp_time)
     a = json.dumps(his_dict, ensure_ascii=False)
-    return Response(data_stream(a), mimetype='application/json')
+    return Response(data_stream(a), mimetype='application/json')  # 数据量太大，使用数据流的方式返回
 
 
 # API,返回流量速率历史数据信息
@@ -814,7 +845,7 @@ def api_flow_history(port):
         his_dict[a[0]] = {'in': a[1], 'out': a[2]}
     # print("查询流量历史数据消耗时间：", time.time() - tmp_time)
     a = json.dumps(his_dict, ensure_ascii=False)
-    return Response(data_stream(a), mimetype='application/json')
+    return Response(data_stream(a), mimetype='application/json')  # 数据量太大，使用数据流的方式返回
 
 
 # API，设置微信统计发送时间
@@ -823,11 +854,24 @@ def weixin_stat_time():
     global WEIXIN_STAT_TIME_H
     global WEIXIN_STAT_TIME_M
     if 'username' in session:
-        if request.method == 'POST':
-            WEIXIN_STAT_TIME_H = int(request.form['time_h'])
-            WEIXIN_STAT_TIME_M = int(request.form['time_m'])
-        info = {"time_h": WEIXIN_STAT_TIME_H, "time_m": WEIXIN_STAT_TIME_M}
-        return json.dumps(info, ensure_ascii=False)
+        if session['username'] == ADMIN_USERNAME:
+            if request.method == 'POST':
+                # 写入到Config.py
+                with open('Config.py', mode='r', encoding='utf-8') as f:
+                    config = f.read()
+                config = config.replace("WEIXIN_STAT_TIME_H = " + str(WEIXIN_STAT_TIME_H),
+                                        "WEIXIN_STAT_TIME_H = " + request.form['time_h'])
+                config = config.replace("WEIXIN_STAT_TIME_M = " + str(WEIXIN_STAT_TIME_M),
+                                        "WEIXIN_STAT_TIME_M = " + request.form['time_m'])
+                print(config)
+                with open('Config.py', mode='w', encoding='utf-8') as f:
+                    f.write(config)
+                WEIXIN_STAT_TIME_H = int(request.form['time_h'])
+                WEIXIN_STAT_TIME_M = int(request.form['time_m'])
+            info = {"time_h": WEIXIN_STAT_TIME_H, "time_m": WEIXIN_STAT_TIME_M}
+            return json.dumps(info, ensure_ascii=False)
+        else:
+            return "权限不足！"
     else:
         return "未登录！"
 
@@ -835,10 +879,18 @@ def weixin_stat_time():
 # API，设置自动重启时间
 @app.route('/api/settings/sw_reboot_time', methods=['GET', 'POST'])
 def sw_reboot_time():
-    global SW_REBOOT_TIME_H
-    global SW_REBOOT_TIME_M
+    global SW_REBOOT_TIME_H, SW_REBOOT_TIME_M
     if 'username' in session:
         if request.method == 'POST':
+            # 写入到Config.py
+            with open('Config.py', mode='r', encoding='utf-8') as f:
+                config = f.read()
+            config = config.replace("SW_REBOOT_TIME_H = " + str(SW_REBOOT_TIME_H),
+                                    "SW_REBOOT_TIME_H = " + request.form['time_h'])
+            config = config.replace("SW_REBOOT_TIME_M = " + str(SW_REBOOT_TIME_M),
+                                    "SW_REBOOT_TIME_H = " + request.form['time_m'])
+            with open('Config.py', mode='w', encoding='utf-8') as f:
+                f.write(config)
             SW_REBOOT_TIME_H = int(request.form['time_h'])
             SW_REBOOT_TIME_M = int(request.form['time_m'])
         info = {"time_h": SW_REBOOT_TIME_H, "time_m": SW_REBOOT_TIME_M}
@@ -851,19 +903,70 @@ def sw_reboot_time():
 @app.route('/api/tools/reboot_switches', methods=['POST'])
 def reboot_sw():
     if 'username' in session:
-        ip = request.form['ip']
-        reboot_switch_snmp(ip)
-        return "监控消息：已发送重启命令！请稍后查看交换机状态。"  # TODO：显示重启进度
+        if session['username'] == ADMIN_USERNAME:
+            ip = request.form['ip']
+            reboot_switch_snmp(ip)
+            return "监控消息：已发送重启命令！请稍后查看交换机状态。"  # TODO：显示重启进度
+        else:
+            return "权限不足！"
     else:
         return "未登录！"
 
 
 # API，发送微信统计。
-@app.route('/api/tools/send_wx_stat')
+@app.route('/api/tools/send_wx_stat')  # 这个应该不用限制管理员权限吧……？
 def send_wx_stat():
     if 'username' in session:
         send_weixin_stat()
-        return 0
+        return "发送成功！"
+    else:
+        return "未登录！"
+
+
+# API，立即重启扫描进程
+@app.route('/api/reboot_scan_process')
+def api_reboot_scan_process():
+    if 'username' in session:
+        if session['username'] == ADMIN_USERNAME:
+            global scan_processes, ip_queue, recive_queue
+            write_log("用户手动重启扫描进程。现在内存使用率为" + str(psutil.virtual_memory()[2]) + "%")
+            Global.reboot = True
+            for a in range(0, SCAN_PROCESS):
+                scan_processes[a].join()
+            Global.reboot = False
+            scan_processes = []
+            for a in range(0, SCAN_PROCESS):
+                scan_processes.append(
+                    Process(target=scan_process, name="扫描进程" + str(a), args=(ip_queue, recive_queue,)))
+                scan_processes[a].start()
+            return "重启成功！"
+        else:
+            return "权限不足！"
+    else:
+        return "未登录！"
+
+
+# API，返回服务器信息
+@app.route('/api/server_info')
+def api_server_info():
+    if 'username' in session:
+        server_info = {}
+        virtual_memory = psutil.virtual_memory()
+        server_info["mem_total"] = round(virtual_memory[0] / 1024 / 1024, 2)
+        server_info["mem_free"] = round(virtual_memory[4] / 1024 / 1024, 2)
+        server_info["mem_used"] = round(virtual_memory[3] / 1024 / 1024, 2)
+        server_info["mem_buffers"] = round(virtual_memory[7] / 1024 / 1024, 2)
+        server_info["mem_cached"] = round(virtual_memory[8] / 1024 / 1024, 2)
+        server_info["mem_free_2"] = round(server_info["mem_free"] * 100 / server_info["mem_total"], 2)
+        server_info["mem_used_2"] = round(server_info["mem_used"] * 100 / server_info["mem_total"], 2)
+        server_info["mem_buffers_2"] = round(server_info["mem_buffers"] * 100 / server_info["mem_total"], 2)
+        server_info["mem_cached_2"] = round(server_info["mem_cached"] * 100 / server_info["mem_total"], 2)
+        swap_memory = psutil.swap_memory()
+        server_info["swap_total"] = round(swap_memory[0] / 1024 / 1024, 2)
+        server_info["swap_used"] = round(swap_memory[1] / 1024 / 1024, 2)
+        server_info["swap_used_2"] = swap_memory[3]
+        # cpu_percent=psutil.cpu_percent(interval=None, percpu=False)
+        return json.dumps(server_info, ensure_ascii=False)
     else:
         return "未登录！"
 
@@ -876,6 +979,16 @@ def api_snmp_warning():
         if switch.cpu_load == "等待获取" or switch.cpu_load == "获取失败":
             info.append(switch.ip)
     return json.dumps(info, ensure_ascii=False)
+
+
+# 测试用
+@app.route('/api/test')
+def api_test():
+    if 'username' in session:
+        print(session)
+        return session['username']
+    else:
+        return "未登录！"
 
 
 def start_web():

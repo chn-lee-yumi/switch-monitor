@@ -54,79 +54,80 @@
         }
         var ip=getQueryStr("ip");
 
-        var all_multiple=1;
-        var speed_multiple=1;
         $(document).ready(function(){
             $("#ip").text(ip);
             chart_history = echarts.init(document.getElementById('chart_history'));
-            setInterval(refresh_page, 30000);//30秒刷新一次
+            setInterval(refresh_page, 60000);//60秒刷新一次
             refresh_page();
             $("#unit_selected").change(function(){
-               var selected=$(this).children('option:selected').val();
-               //alert(selected);
-               if(selected=="Gbps"){
-                   $("#in_all").text("入方向总流量(GB)");
-                   $("#out_all").text("出方向总流量(GB)");
-                   $("#in_speed").text("入方向流量速率(Gbps)");
-                   $("#out_speed").text("出方向流量速率(Gbps)");
-                   all_multiple=1/(1024*1024*1024);
-                   speed_multiple=8/(1024*1024*1024);
-               }else if(selected=="Mbps"){
-                   $("#in_all").text("入方向总流量(MB)");
-                   $("#out_all").text("出方向总流量(MB)");
-                   $("#in_speed").text("入方向流量速率(Mbps)");
-                   $("#out_speed").text("出方向流量速率(Mbps)");
-                   all_multiple=1/(1024*1024);
-                   speed_multiple=8/(1024*1024);
-               }else if(selected=="Kbps"){
-                   $("#in_all").text("入方向总流量(KB)");
-                   $("#out_all").text("出方向总流量(KB)");
-                   $("#in_speed").text("入方向流量速率(Kbps)");
-                   $("#out_speed").text("出方向流量速率(Kbps)");
-                   all_multiple=1/(1024);
-                   speed_multiple=8/(1024);
-               }else if(selected=="bps"){
-                   $("#in_all").text("入方向总流量(Bytes)");
-                   $("#out_all").text("出方向总流量(Bytes)");
-                   $("#in_speed").text("入方向流量速率(bps)");
-                   $("#out_speed").text("出方向流量速率(bps)");
-                   all_multiple=1;
-                   speed_multiple=8;
-               }else if(selected=="GB/s"){
-                   $("#in_all").text("入方向总流量(GB)");
-                   $("#out_all").text("出方向总流量(GB)");
-                   $("#in_speed").text("入方向流量速率(GB/s)");
-                   $("#out_speed").text("出方向流量速率(GB/s)");
-                   all_multiple=1/(1024*1024*1024);
-                   speed_multiple=1/(1024*1024*1024);
-               }else if(selected=="MB/s"){
-                   $("#in_all").text("入方向总流量(MB)");
-                   $("#out_all").text("出方向总流量(MB)");
-                   $("#in_speed").text("入方向流量速率(MB/s)");
-                   $("#out_speed").text("出方向流量速率(MB/s)");
-                   all_multiple=1/(1024*1024);
-                   speed_multiple=1/(1024*1024);
-               }else if(selected=="KB/s"){
-                   $("#in_all").text("入方向总流量(KB)");
-                   $("#out_all").text("出方向总流量(KB)");
-                   $("#in_speed").text("入方向流量速率(KB/s)");
-                   $("#out_speed").text("出方向流量速率(KB/s)");
-                   all_multiple=1/(1024);
-                   speed_multiple=1/(1024);
-               }else if(selected=="Byte/s"){
-                   $("#in_all").text("入方向总流量(Bytes)");
-                   $("#out_all").text("出方向总流量(Bytes)");
-                   $("#in_speed").text("入方向流量速率(Bytes/s)");
-                   $("#out_speed").text("出方向流量速率(Bytes/s)");
-                   all_multiple=1;
-                   speed_multiple=1;
-               }
                refresh_table();
            });
         });
 
+        var all_multiple
+        var speed_multiple
         var port_datas;
         function refresh_table(){
+            var selected=$("#unit_selected").children('option:selected').val();
+           //alert(selected);
+           if(selected=="Gbps"){
+               $("#in_all").text("入方向总流量(GB)");
+               $("#out_all").text("出方向总流量(GB)");
+               $("#in_speed").text("入方向流量速率(Gbps)");
+               $("#out_speed").text("出方向流量速率(Gbps)");
+               all_multiple=1/(1024*1024*1024);
+               speed_multiple=8/(1024*1024*1024);
+           }else if(selected=="Mbps"){
+               $("#in_all").text("入方向总流量(MB)");
+               $("#out_all").text("出方向总流量(MB)");
+               $("#in_speed").text("入方向流量速率(Mbps)");
+               $("#out_speed").text("出方向流量速率(Mbps)");
+               all_multiple=1/(1024*1024);
+               speed_multiple=8/(1024*1024);
+           }else if(selected=="Kbps"){
+               $("#in_all").text("入方向总流量(KB)");
+               $("#out_all").text("出方向总流量(KB)");
+               $("#in_speed").text("入方向流量速率(Kbps)");
+               $("#out_speed").text("出方向流量速率(Kbps)");
+               all_multiple=1/(1024);
+               speed_multiple=8/(1024);
+           }else if(selected=="bps"){
+               $("#in_all").text("入方向总流量(Bytes)");
+               $("#out_all").text("出方向总流量(Bytes)");
+               $("#in_speed").text("入方向流量速率(bps)");
+               $("#out_speed").text("出方向流量速率(bps)");
+               all_multiple=1;
+               speed_multiple=8;
+           }else if(selected=="GB/s"){
+               $("#in_all").text("入方向总流量(GB)");
+               $("#out_all").text("出方向总流量(GB)");
+               $("#in_speed").text("入方向流量速率(GB/s)");
+               $("#out_speed").text("出方向流量速率(GB/s)");
+               all_multiple=1/(1024*1024*1024);
+               speed_multiple=1/(1024*1024*1024);
+           }else if(selected=="MB/s"){
+               $("#in_all").text("入方向总流量(MB)");
+               $("#out_all").text("出方向总流量(MB)");
+               $("#in_speed").text("入方向流量速率(MB/s)");
+               $("#out_speed").text("出方向流量速率(MB/s)");
+               all_multiple=1/(1024*1024);
+               speed_multiple=1/(1024*1024);
+           }else if(selected=="KB/s"){
+               $("#in_all").text("入方向总流量(KB)");
+               $("#out_all").text("出方向总流量(KB)");
+               $("#in_speed").text("入方向流量速率(KB/s)");
+               $("#out_speed").text("出方向流量速率(KB/s)");
+               all_multiple=1/(1024);
+               speed_multiple=1/(1024);
+           }else if(selected=="Byte/s"){
+               $("#in_all").text("入方向总流量(Bytes)");
+               $("#out_all").text("出方向总流量(Bytes)");
+               $("#in_speed").text("入方向流量速率(Bytes/s)");
+               $("#out_speed").text("出方向流量速率(Bytes/s)");
+               all_multiple=1;
+               speed_multiple=1;
+           }
+
             data=$.extend(true , {} , port_datas);//jquery copy
             //console.log(data);
             table_html="";
@@ -146,10 +147,11 @@
                 //up_time_string=data["if_uptime"][sw].split(':');
                 //data["if_uptime"][sw]=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+parseInt(up_time_string[3])+"秒";
                 data["if_uptime"][sw]=formatSeconds(data["if_uptime"][sw]);
+                table_html+="<tr><td>"+data["if_name"][sw]+"</td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+data["if_speed"][sw]+"</td><td>";
                 if(speed_multiple==1 || speed_multiple==8){
-                    table_html+="<tr><td>"+data["if_name"][sw]+"</td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+(data["if_in"][sw]*all_multiple)+"</td><td>"+(data["if_out"][sw]*all_multiple)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple)+"</td></tr>";
+                    table_html+=(data["if_in"][sw]*all_multiple)+"</td><td>"+(data["if_out"][sw]*all_multiple)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple)+"</td></tr>";
                 }else{
-                    table_html+="<tr><td>"+data["if_name"][sw]+"</td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+(data["if_in"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_out"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple).toFixed(4)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple).toFixed(4)+"</td></tr>";
+                    table_html+=(data["if_in"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_out"][sw]*all_multiple).toFixed(4)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple).toFixed(4)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple).toFixed(4)+"</td></tr>";
                 }
             }
             $("#switch_info_tbody").html(table_html);
@@ -298,7 +300,7 @@
                 <option value="KB/s">KB/s</option>
                 <option value="Byte/s">Byte/s</option>
             </select>
-            <span> 页面自动更新间隔：30秒</span>
+            <span> 页面自动更新间隔：1分钟</span>
         </h4>
     </div>
 
@@ -312,10 +314,11 @@
                     <th>状态</th>
                     <th>Uptime</th>
                     <th>IP / Mask</th>
-                    <th id="in_all">入方向总流量(Bytes)</th>
-                    <th id="out_all">出方向总流量(Bytes)</th>
-                    <th id="in_speed">入方向流量速率(Bytes/sec)</th>
-                    <th id="out_speed">出方向流量速率(Bytes/sec)</th>
+                    <th>端口带宽(Mbps)</th>
+                    <th id="in_all">入方向总流量</th>
+                    <th id="out_all">出方向总流量</th>
+                    <th id="in_speed">入方向流量速率</th>
+                    <th id="out_speed">出方向流量速率</th>
                 </tr>
                 </thead>
                 <tbody id="switch_info_tbody">

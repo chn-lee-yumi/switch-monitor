@@ -24,7 +24,7 @@
                 console.log(data);
                 for(var port in data){
                     d=data[port].split(",");
-                    table_html+="<tr><td>"+d[0]+"</td><td><a href='/port?port="+data[port].replace(/\//g, '_')+"' target='_blank'>"+d[1]+"</a></td></tr>";
+                    table_html+="<tr><td>"+d[0]+"</td><td><a href='/port?port="+d[0]+","+d[1].replace(/\//g, '_')+"' target='_blank'>"+d[1]+"</td><td>"+d[2]+"</a></td></tr>";
                 }
                 $("#port_info_tbody").html(table_html);
             });
@@ -63,6 +63,7 @@
                         <tr>
                             <th>交换机IP</th>
                             <th>交换机端口</th>
+                            <th>描述</th>
                         </tr>
                         </thead>
                         <tbody id="port_info_tbody">

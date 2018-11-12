@@ -20,9 +20,9 @@
 
     <script>
         $(document).ready(function(){
-            $.getJSON("/api/settings/helpdesk_time",function(data){
+            /*$.getJSON("/api/settings/helpdesk_time",function(data){
                 $("#time_setting").val(data.time);
-            });
+            });*/
             $.getJSON("/api/settings/weixin_stat_time",function(data){
                 $("#time_h").val(data.time_h);
                 $("#time_m").val(data.time_m);
@@ -31,14 +31,14 @@
                 $("#sw_time_h").val(data.time_h);
                 $("#sw_time_m").val(data.time_m);
             });
-            $("#update_helpdesk_time").click(function(){
+            /*$("#update_helpdesk_time").click(function(){
                 //获取选择的时间
                 helpdesk_time=$("#time_setting").val();
                 $.post("/api/settings/helpdesk_time",{time:helpdesk_time},function(data){
                     data=JSON.parse(data)
                     alert("已设置时间："+data.time+"分钟");
                 });
-            });
+            });*/
             $("#update_weixin_stat_time").click(function(){
                 weixin_stat_time_h=$("#time_h").val();
                 weixin_stat_time_m=$("#time_m").val();
@@ -57,9 +57,8 @@
             });
             $("#send_wx_stat").click(function(){
                 $.get("/api/tools/send_wx_stat",function(data){
-                    //alert("微信统计已发送。");
+                    alert(data);
                 });
-                alert("微信统计已发送。");
             });
             $("#reboot_sw").click(function(){
                 ip=$("#ip").val();
@@ -67,6 +66,23 @@
                 $.post("/api/tools/reboot_switches",{ip:ip},function(data){
                     alert(data);
                 });
+            });
+            $("#reboot_scan_process").click(function(){
+                alert("请求已发送，请等待大约1分钟……完成后会弹窗提示。")
+                $('#reboot_scan_process').attr('disabled',"true");
+                $.get("/api/reboot_scan_process",function(data){
+                    alert(data);
+                    $('#reboot_scan_process').removeAttr("disabled");
+                });
+            });
+
+            $.getJSON("/api/server_info",function(info){
+                $("#mem_info").html("total: "+info.mem_total+"MB&nbsp;&nbsp;&nbsp;used: "+info.mem_used+"MB ("+info.mem_used_2+"%)&nbsp;&nbsp;&nbsp;buffers: "+info.mem_buffers+"MB ("+info.mem_buffers_2+"%)&nbsp;&nbsp;&nbsp;cached: "+info.mem_cached+"MB ("+info.mem_cached_2+"%)&nbsp;&nbsp;&nbsp;free: "+info.mem_free+"MB ("+info.mem_free_2+"%)");
+                $("#mem_used_2").attr("style","width: "+info.mem_used_2+"%");
+                $("#mem_buffers_2").attr("style","width: "+info.mem_buffers_2+"%");
+                $("#mem_cached_2").attr("style","width: "+info.mem_cached_2+"%");
+                $("#swap_info").html("total: "+info.swap_total+"MB&nbsp;&nbsp;&nbsp;used: "+info.swap_used+"MB ("+info.swap_used_2+"%)");
+                $("#swap_used_2").attr("style","width: "+info.swap_used_2+"%");
             });
         });
 
@@ -92,6 +108,55 @@
         <h3 class="text-muted">广工大交换机监控</h3>
     </div>
 
+
+
+    <h2 class="page-header">服务器状态</h2>
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <div class="row">
+                <div class="row">
+                    <div class="col-md-1">
+                        <h4><span class="label label-info">物理内存</span></h4>
+                    </div>
+                    <div class="col-md-11">
+                        <h4 id="mem_info" class="text-info"></h4>
+                        <h4 class="text-danger">注：红色部分(used)为真实内存使用量。Linux系统会把多余的内存用于缓存(buffers/cached)，当内存不足时会自动释放。</h4>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-1"></div>
+                    <div class="col-md-11">
+                        <div class="progress">
+                            <div id="mem_used_2" class="progress-bar progress-bar-danger" role="progressbar" style="width: 0%"></div>
+                            <div id="mem_buffers_2" class="progress-bar progress-bar-warning" role="progressbar" style="width: 0%"></div>
+                            <div id="mem_cached_2" class="progress-bar progress-bar-info" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-1">
+                        <h4><span class="label label-info">SWAP</span></h4>
+                    </div>
+                    <div class="col-md-11">
+                        <h4 id="swap_info" class="text-info"></h4>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-1"></div>
+                    <div class="col-md-11">
+                        <div class="progress">
+                            <div id="swap_used_2" class="progress-bar progress-bar-danger" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     <h2 class="page-header">微信通知设置</h2>
     <div class="panel panel-default">
         <div class="panel-body">
@@ -100,8 +165,8 @@
                 <p>于每天
                     <span><input type="text" id="time_h" style="width:60px;" class=""></input></span> 时
                     <span><input type="text" id="time_m" style="width:60px;" class=""></input></span> 分发送。
-                    <span><button class="btn btn-sm btn-primary" id="update_weixin_stat_time">确定</button></span>
-                    <span><button class="btn btn-sm btn-default" id="send_wx_stat">现在发送一次</button></span>
+                    <span><button class="btn btn-sm btn-default" id="update_weixin_stat_time">确定</button></span>
+                    <span><button class="btn btn-sm btn-primary" id="send_wx_stat">现在发送一次</button></span>
                 </p>
             </div>
         </div>
@@ -115,17 +180,28 @@
                 <p>于每天
                     <span><input type="text" id="sw_time_h" style="width:60px;" class=""></input></span> 时
                     <span><input type="text" id="sw_time_m" style="width:60px;" class=""></input></span> 分重启。
-                    <span><button class="btn btn-sm btn-primary" id="update_sw_time">确定</button></span>
+                    <span><button class="btn btn-sm btn-default" id="update_sw_time">确定</button></span>
                 </p>
                 <p>
                     <span>手动重启交换机：</span>
                     <span><input type="text" id="ip" style="width:180px;" class="" placeholder="请输入IP，如172.16.101.1"></input></span>
-                    <span><button class="btn btn-sm btn-default" id="reboot_sw">现在重启</button></span>
+                    <span><button class="btn btn-sm btn-danger" id="reboot_sw">现在重启</button></span>
                 </p>
             </div>
         </div>
     </div>
 
+    <h2 class="page-header">扫描设置</h2>
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <div class="row">
+                <p>
+                    <span>Debug：手动重启扫描进程：</span>
+                    <span><button class="btn btn-sm btn-danger" id="reboot_scan_process">点击立即重启（大约需要1分钟）</button></span>
+                </p>
+            </div>
+        </div>
+    </div>
 
     <!--
         <h2 class="page-header">概况</h2>

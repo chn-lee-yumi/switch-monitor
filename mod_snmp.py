@@ -1,7 +1,14 @@
 # encoding: utf-8
-import netsnmp
-import time
-from Config import SNMP_READ_COMMUNITY, SNMP_WRITE_COMMUNITY
+import time, platform
+from Config import SNMP_MODE, SNMP_READ_COMMUNITY, SNMP_WRITE_COMMUNITY
+
+if SNMP_MODE == "lib":
+    import netsnmp
+elif SNMP_MODE == "bin":
+    import subprocess
+
+SNMP_WALK_BIN_PATH = "snmpwalk"
+SNMP_SET_BIN_PATH = "snmpset"
 
 # TODO：更新E152B的MIB
 
@@ -20,6 +27,7 @@ sysDescr    系统描述    1.3.6.1.2.1.1.1    系统的文字描述。包括系
 sysUpTime   运行时间    1.3.6.1.2.1.1.3    从系统网管部分启动以来运行的时间，单位为百分之一秒。
 sysName     系统名称    1.3.6.1.2.1.1.5    （也就是交换机名称）
 ifTable     接口信息    1.3.6.1.2.1.2.2.1
+ifXTable    接口信息    1.3.6.1.2.1.31.1.1.1
 
 S2700：
 hwCpuDevTable   CPU信息   1.3.6.1.4.1.2011.6.3.4.1    5s、1min、5min
@@ -116,7 +124,7 @@ def SnmpWalk(ip, model, info):
     if info == "temp" and model.find("S8610") == 0:
         oid = "1.3.6.1.4.1.4881.1.1.10.2.1.1.16"  # 锐捷实体温度
     if info == "up_time": oid = "1.3.6.1.2.1.1.3"  # 运行时间
-    if info == "if_name": oid = "1.3.6.1.2.1.2.2.1.2"  # 接口名字
+    if info == "if_name": oid = "1.3.6.1.2.1.2.2.1.2"  # 接口名字 1.3.6.1.2.1.31.1.1.1.1
     if info == "if_index": oid = "1.3.6.1.2.1.2.2.1.1"
     if info == "if_status": oid = "1.3.6.1.2.1.2.2.1.8"  # 接口状态 up(1),down(2),testing(3),unknown(4),dormant(5),notPresent(6),lowerLayerDown(7)
     if info == "if_ip": oid = "1.3.6.1.4.1.2011.5.25.41.1.2.1.1.1"  # 接口IP
@@ -126,79 +134,124 @@ def SnmpWalk(ip, model, info):
     if info == "if_out": oid = "1.3.6.1.2.1.31.1.1.1.10"  # 该接口出方向通过的总字节数 1.3.6.1.2.1.2.2.1.16（32位） 1.3.6.1.2.1.31.1.1.1.10 (增强版，64位)
     if info == "if_uptime": oid = "1.3.6.1.2.1.2.2.1.9"  # 1.3.6.1.2.1.2.2.1.9.6 端口uptime
     if info == "if_descr": oid = "1.3.6.1.2.1.31.1.1.1.18"  # 接口描述
+    if info == "if_speed": oid = "1.3.6.1.2.1.31.1.1.1.15"  # 接口带宽，单位为Mbps
     if info == "name": oid = "1.3.6.1.2.1.1.5"  # 设备名
 
-    # pip3 install python3-netsnmp
-    tmp_time = time.time()
-    b = netsnmp.snmpwalk('.' + oid, DestHost=ip, Version=2, Community=SNMP_READ_COMMUNITY, Timeout=500000, Retries=3)
-    # print("snmpwalk用时," + ip + "," + info + "," + str(round(time.time() - tmp_time, 4)))
-    if len(b) == 0:
-        if time.time() - tmp_time < 0.99:
-            return "设备不支持"
-        else:  # timeout
-            return "获取失败"
-    if return_list == True:
-        return max(map(lambda x: int(x.decode('utf-8')), b))
-    if len(b) == 1:
-        return b[0].decode('utf-8')
-    return list(map(lambda x: x.decode('utf-8'), b))
-
-    '''
-    # pip3 install netsnmp-py
-    try:
-        # tmp_time = time.time()
-        with netsnmp.SNMPSession(ip, SNMP_READ_COMMUNITY, timeout=1, retries=3) as ss:
-            b = [response for response in ss.walk(['.' + oid])]
+    if SNMP_MODE == "lib":
+        # pip3 install python3-netsnmp
+        tmp_time = time.time()
+        b = netsnmp.snmpwalk('.' + oid, DestHost=ip, Version=2, Community=SNMP_READ_COMMUNITY, Timeout=500000,
+                             Retries=3)
         # print("snmpwalk用时," + ip + "," + info + "," + str(round(time.time() - tmp_time, 4)))
-        # print(b)
         if len(b) == 0:
-            return "设备不支持"
+            if time.time() - tmp_time < 0.99:
+                return "设备不支持"
+            else:  # timeout
+                return "获取失败"
         if return_list == True:
-            return max(map(lambda x: int(x[2]), b))  # 仅返回最大值
+            return max(map(lambda x: int(x.decode('utf-8')), b))
         if len(b) == 1:
-            return b[0][2].replace('"', '')  # 将双引号替换掉，因为字符串会带双引号
-        return list(map(lambda x: x[2].replace('"', ''), b))  # 返回一整个列表
-    except:  # Timeout error
-        return "获取失败"
-    '''
+            return b[0].decode('utf-8')
+        return list(map(lambda x: x.decode('utf-8'), b))
+    elif SNMP_MODE == "bin":
+        try:
+            a = subprocess.Popen(
+                [SNMP_WALK_BIN_PATH, "-O", "qv", "-t", "1", "-r", "3", "-v", "2c", "-c", SNMP_READ_COMMUNITY, ip, oid],
+                bufsize=0, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            b = a.stdout.read().decode('utf-8')[:-1]
+            if b == "": return "获取失败"
+            if b.find("No Such Object") >= 0: return "设备不支持"
+            if return_list == True:
+                return max(map(int, b.split()))  # 仅返回最大值
+            # 下面清空流，防止爆内存，参考http://blog.csdn.net/pugongying1988/article/details/54616797
+            # 似乎没用？？？？？？？？？？？？？？？
+            if a.stdin:
+                a.stdin.close()
+            if a.stdout:
+                a.stdout.close()
+            if a.stderr:
+                a.stderr.close()
+            try:
+                a.kill()
+            except OSError:
+                pass
+            # 下面返回数据
+            b = list(map(lambda x: x.strip("\""), b.split("\n")))  # 转为列表并去掉双引号
+            if info.find("time") != -1:  # 将d:h:m:s的格式转为数字
+                b = list(map(reformat_time, b))
+            return b
+        except:
+            return "1"
 
 
 def SnmpSet(ip, model, info):  # TODO:继续完善
-    if info == "reboot" and model.find("S") == 0: oid = S2700_reboot
-    if info == "reboot" and model.find("E") == 0: oid = H3C_reboot
-    netsnmp.snmpset(['.' + oid, 0, 1], DestHost=ip, Version=2, Community=SNMP_WRITE_COMMUNITY, Timeout=1000000)
-    '''
-    if info == "reboot" and model == "S2700":
-        oid = "1.3.6.1.4.1.2011.5.25.19.1.3.2.0"
+    if info == "reboot" and model.find("S") == 0:
+        oid = S2700_reboot
+    elif info == "reboot" and model.find("E") == 0:
+        oid = H3C_reboot
+    else:
+        oid = S2700_reboot
+
+    if SNMP_MODE == "lib":
+        netsnmp.snmpset(['.' + oid, 0, 1], DestHost=ip, Version=2, Community=SNMP_WRITE_COMMUNITY,
+                        Timeout=500000)  # 此句有BUG：TypeError: expected string or buffer
+    elif SNMP_MODE == "bin":
         type = 'i'
         value = "3"
-    try:
-        a = subprocess.Popen(
-            [SNMP_SET_BIN_PATH, "-O", "qv", "-t", "1", "-r", "3", "-v", SNMP_VER, "-c", SNMP_WRITE_COMMUNITY, ip, oid,
-             type, value], bufsize=0, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        # snmpwalk -v 2c -c gdgydx_pub 172.16.111.1 1.3.6.1.2.1.2.2.1.2
-        # snmpwalk -v 2c -c gdgydx_pub 172.16.111.1 1.3.6.1.2.1.2.2.1.10
-        b = a.stdout.read().decode('utf-8').strip('\n')
-        # 下面清空流，防止爆内存，参考http://blog.csdn.net/pugongying1988/article/details/54616797
-        if a.stdin:
-            a.stdin.close()
-        if a.stdout:
-            a.stdout.close()
-        if a.stderr:
-            a.stderr.close()
         try:
-            a.kill()
-        except OSError:
-            pass
-        # 下面返回数据
-        if b == "": return "获取失败"
-        if b.find("No Such Object") >= 0: return "设备不支持"
-        return b
-    except:
-        return "设置失败"
-    '''
+            a = subprocess.Popen(
+                [SNMP_SET_BIN_PATH, "-O", "qv", "-t", "1", "-r", "3", "-v", "2c", "-c", SNMP_WRITE_COMMUNITY, ip, oid,
+                 type, value], bufsize=0, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            b = a.stdout.read().decode('utf-8').strip('\n')
+            # 下面清空流，防止爆内存，参考http://blog.csdn.net/pugongying1988/article/details/54616797 似乎没用，TODO：没问题就注释掉
+            if a.stdin:
+                a.stdin.close()
+            if a.stdout:
+                a.stdout.close()
+            if a.stderr:
+                a.stderr.close()
+            try:
+                a.kill()
+            except OSError:
+                pass
+            # 下面返回数据
+            if b == "": return "获取失败"
+            if b.find("No Such Object") >= 0: return "设备不支持"
+            b = list(map(lambda x: x.strip("\""), b.split("\n")))
+            return b
+        except:
+            return "设置失败"
+
+
+def reformat_time(time_str):
+    a = time_str.split(":")
+    return int(int(a[0]) * 100 * 60 * 60 * 24 + int(a[1]) * 100 * 60 * 60 + int(a[2]) * 100 * 60 + float(a[3]) * 100)
 
 
 if __name__ == '__main__':  # SNMP测试
-    print(SnmpWalk("172.16.102.253", "S2700", "if_name"))
+    print(SnmpWalk("172.16.101.1", "S2700", "if_name"))
+    # a = subprocess.Popen(
+    #    ["bin\snmpwalk", "-v", "2c", "-c", SNMP_READ_COMMUNITY, "172.16.111.1", "1.3.6.1.2.1.2.2.1.2"],
+    #    bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # b = a.stdout.read()
+    # print(b)
+
+'''
+# pip3 install netsnmp-py
+try:
+    # tmp_time = time.time()
+    with netsnmp.SNMPSession(ip, SNMP_READ_COMMUNITY, timeout=1, retries=3) as ss:
+        b = [response for response in ss.walk(['.' + oid])]
+    # print("snmpwalk用时," + ip + "," + info + "," + str(round(time.time() - tmp_time, 4)))
+    # print(b)
+    if len(b) == 0:
+        return "设备不支持"
+    if return_list == True:
+        return max(map(lambda x: int(x[2]), b))  # 仅返回最大值
+    if len(b) == 1:
+        return b[0][2].replace('"', '')  # 将双引号替换掉，因为字符串会带双引号
+    return list(map(lambda x: x[2].replace('"', ''), b))  # 返回一整个列表
+except:  # Timeout error
+    return "获取失败"
+'''
