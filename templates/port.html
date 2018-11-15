@@ -18,6 +18,9 @@
     <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
     <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
     <![endif]-->
+
+    <link href="/static/global.css" rel="stylesheet">
+
     <script>
 
         var LocString = String(window.document.location.href);
@@ -139,7 +142,7 @@
                 dataZoom: [
                     {
                         type: 'slider',
-                        start: 85,
+                        start: 85.7,
                         end: 100
                     },
                     {
@@ -188,57 +191,55 @@
             refresh_chart()
         };
 
+
     </script>
 
     <title>广工大交换机监控</title>
 
 </head>
 
-<body>
+<body background="/static/bg.jpg">
 
-<div class="container-fluid">
+<div class="container-fluid panel panel-default panel-body">
 
-    <div class="row">
-        <h2>端口历史流量速率信息</h2>
-    </div>
+    <div class="panel panel-body">
 
-    <div class="row">
-        <h3 id="port"></h3>
-    </div>
-
-    <div class="row">
-        <div class="col-sm-12 col-xm-12">
-            <div id="chart_history" style="width:100%;height:540px;float:left;"></div>
+        <div class="row">
+            <h2>端口历史流量速率信息</h2>
         </div>
+
+        <div class="row">
+            <h3 id="port"></h3>
+        </div>
+
+        <div class="row">
+            <div class="col-sm-12 col-xm-12">
+                <div id="chart_history" style="width:100%;height:540px;float:left;"></div>
+            </div>
+        </div>
+
+        <h4><span>速率单位：</span>
+            <select name="unit" class="input-sm" id="unit_selected">
+                <option value="Gbps" selected="selected">Gbps</option>
+                <option value="Mbps">Mbps</option>
+                <option value="Kbps">Kbps</option>
+                <option value="bps">bps</option>
+                <option value="GB/s">GB/s</option>
+                <option value="MB/s">MB/s</option>
+                <option value="KB/s">KB/s</option>
+                <option value="Byte/s">Byte/s</option>
+            </select>
+            <span> 页面自动更新间隔：1分钟</span>
+        </h4>
+
+        <!--
+        <div class="alert alert-info" id="warnings-div">
+            <p>流量速率最小值最大值平均值（不知道是否有必要，因为最小值最大值一眼就能看出来，平均值好像并不关心）</p>
+        </div>
+        -->
     </div>
-
-    <h4><span>速率单位：</span>
-        <select name="unit" class="input-sm" id="unit_selected">
-            <option value="Gbps" selected="selected">Gbps</option>
-            <option value="Mbps">Mbps</option>
-            <option value="Kbps">Kbps</option>
-            <option value="bps">bps</option>
-            <option value="GB/s">GB/s</option>
-            <option value="MB/s">MB/s</option>
-            <option value="KB/s">KB/s</option>
-            <option value="Byte/s">Byte/s</option>
-        </select>
-        <span> 页面自动更新间隔：1分钟</span>
-    </h4>
-
-    <!--
-    <div class="alert alert-info" id="warnings-div">
-        <p>流量速率最小值最大值平均值（不知道是否有必要，因为最小值最大值一眼就能看出来，平均值好像并不关心）</p>
-    </div>
-    -->
-
 
 </div>
 
 </body>
 </html>
-<style type="text/css">
-.container-fluid {
-  margin: 5px 5px 30px 30px;
-}
-</style>

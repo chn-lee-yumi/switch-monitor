@@ -3,13 +3,18 @@
 # TODO：严重的BUG：在尝试使用uwsgi部署的时候，执行到扫描线程的pick = pickle.dumps(switch)时会卡住，原因未知
 '''
 # TODO：
-监控所有端口的流量，端口当前速率大于最大速率的80%就报警
-前端页面增加是否自动更新的复选框
-端口流量自适应
+流量持续过大报警
 学校E152B系统版本更新（旧版本存在BUG）
 完成E152B适配（重启功能）
+BUG：交换机刚重启时端口流量爆表
+前端：
+    首页图表大小自适应屏幕大小（手机、1080p、4K……）
+    加favicon
+    导航栏显示优化
+    端口流量单位自适应
+    增加是否自动更新的复选框
+    页面锚点刷新/跨页面跳转失效的BUG
 配置页面功能：
-    增加查看和清除日志功能
     设置页面加参数：TCPING_TIMEOUT SCAN_THREADS SCAN_PROCESS SEND_MSG_DELAY CPU_THRESHOLD MEM_THRESHOLD  TEMP_THRESHOLD  DATA_RECORD_SAVED_DAYS  SCAN_REBOOT_HOURS
     设置页面加修改密码功能
     加交换机自动重启开关
@@ -18,6 +23,7 @@ import sqlite3
 import threading
 import platform
 import pickle
+import os
 import psutil
 from multiprocessing import Process, Manager, cpu_count, Queue
 from flask import *
@@ -28,7 +34,7 @@ from mod_weixin import *
 
 from Config import USE_HTTPS, ADMIN_USERNAME, ADMIN_PASSWORD, WEB_USERNAME, WEB_PASSWORD, WEB_PORT, SEND_MSG_DELAY, \
     WEIXIN_STAT_TIME_H, WEIXIN_STAT_TIME_M, SW_REBOOT_TIME_H, SW_REBOOT_TIME_M, CPU_THRESHOLD, MEM_THRESHOLD, \
-    TEMP_THRESHOLD, DATA_RECORD_SAVED_DAYS, SCAN_THREADS, SCAN_PROCESS, SCAN_REBOOT_HOURS, SNMP_MODE
+    TEMP_THRESHOLD, IF_SPEED_THRESHOLD, DATA_RECORD_SAVED_DAYS, SCAN_THREADS, SCAN_PROCESS, SCAN_REBOOT_HOURS, SNMP_MODE
 
 global switches, buildings_list, switch_ping_num, switch_snmp_num, scan_processes, ip_queue, recive_queue, write_queue
 
@@ -57,6 +63,7 @@ def start_switch_monitor():
     print("当前运行平台：", platform.platform())
     print("当前Python版本：", platform.python_version())
     print("CPU核心数：", cpu_count())
+    print("扫描模式：", SNMP_MODE)
     print("扫描进程数：", SCAN_PROCESS)
     print("单进程线程数：", SCAN_THREADS)
     print("总扫描线程数：", SCAN_PROCESS * SCAN_THREADS)
@@ -308,7 +315,6 @@ def scan_switch(ip_queue, recive_queue):  # 扫描线程
                     switch.if_ip = SnmpWalk(switch.ip, switch.model, "if_ip")
                     switch.if_ipindex = SnmpWalk(switch.ip, switch.model, "if_ipindex")
                     switch.if_ipmask = SnmpWalk(switch.ip, switch.model, "if_ipmask")
-                    switch.if_speed = SnmpWalk(switch.ip, switch.model, "if_speed")
                     switch.name = SnmpWalk(switch.ip, switch.model, "name")
                     for a in range(0, 5):
                         tmp_if_name = SnmpWalk(switch.ip, switch.model, "if_name")
@@ -321,13 +327,15 @@ def scan_switch(ip_queue, recive_queue):  # 扫描线程
                     switch.mem_used = SnmpWalk(switch.ip, switch.model, "mem_used")
                     switch.temp = SnmpWalk(switch.ip, switch.model, "temp")
                 switch.if_status = SnmpWalk(switch.ip, switch.model, "if_status")
+                switch.if_speed = SnmpWalk(switch.ip, switch.model, "if_speed")
+                # 下面获取端口流过的字节数，从而计算端口实时流量
                 last_if_in = switch.if_in
                 last_if_out = switch.if_out
                 switch.if_in = SnmpWalk(switch.ip, switch.model, "if_in")
                 switch.if_out = SnmpWalk(switch.ip, switch.model, "if_out")
                 if_in_speed = []
                 if_out_speed = []
-                # 下面这部分代码用于计算接口当前速率
+                # 下面这部分代码用于计算接口当前速率（实时流量）
                 for a in range(0, len(switch.if_name)):
                     if len(last_if_in) != 0:  # 第一次获取时不进行速率计算
                         if last_if_in != '获取失败' and switch.if_in != '获取失败':  # 数据获取正常才进行计算
@@ -499,7 +507,7 @@ def mission_distributer(ip_queue):  # 任务发放线程
             time.sleep(10)  # 按一次轮询60秒计，三分之一需要20秒，这里取一半
 
 
-def data_supervisor():  # 监控线程。
+def data_supervisor():  # 监控线程，微信发送交换机在线情况变化消息及每日统计，执行每日自动重启任务。
     time.sleep(180)  # 启动程序180s后再启动监控线程
     devices_alerted = []
     while (1):
@@ -516,7 +524,7 @@ def data_supervisor():  # 监控线程。
                     write_log(switch.ip + "掉线")
                     devices_alerted.append(switch.ip)
             except:
-                write_log(switch.ip + " switch.down_time " + switch.down_time)
+                write_log("Exception@data_supervisor: " + switch.ip + " switch.down_time " + switch.down_time)
         sleep60 = False
         if time.localtime()[3] == WEIXIN_STAT_TIME_H and time.localtime()[4] == WEIXIN_STAT_TIME_M:  # 每天发送统计信息
             send_weixin_stat()
@@ -525,19 +533,19 @@ def data_supervisor():  # 监控线程。
             reboot_overload_sw()
             sleep60 = True
         # 内存Debug
-        if time.localtime()[4] == 0 and time.localtime()[3] % 6 == 0:  # 每6小时发送内存信息
+        if time.localtime()[3] % 6 == 0 and time.localtime()[4] == 0:  # 每6小时写入内存使用率信息
             server_info = {}
             virtual_memory = psutil.virtual_memory()
             server_info["mem_total"] = round(virtual_memory[0] / 1024 / 1024, 2)
             server_info["mem_used"] = round(virtual_memory[3] / 1024 / 1024, 2)
             server_info["mem_used_2"] = round(server_info["mem_used"] * 100 / server_info["mem_total"], 2)
-            send_weixin_msg("服务器内存使用率：" + str(server_info["mem_used_2"] + "%"), 2)
+            send_weixin_msg("服务器内存使用率：" + str(server_info["mem_used_2"]) + "%", 2)
             sleep60 = True
         if sleep60 == True: time.sleep(60)
         time.sleep(1)
 
 
-def send_weixin_stat():
+def send_weixin_stat():  # 统计掉线、CPU使用率过高、内存使用率过高、温度过高四种情况，暂时不统计端口流量过高
     msg_src = "[监控消息]今日交换机状态统计\n"
     msg = msg_src
     down = 0
@@ -612,9 +620,10 @@ def write_db(ip, column, data):
 
 
 def write_log(text):
-    print(text)
+    log = time.strftime('[%Y-%m-%d %H:%M:%S] ', time.localtime()) + text
+    print(log)
     with open('log.txt', mode='a', encoding='utf-8') as f:
-        f.write(time.strftime('[%Y-%m-%d %H:%M:%S] ', time.localtime()) + text + "\n")
+        f.write(log + "\n")
 
 
 app = Flask(__name__)
@@ -713,10 +722,13 @@ def port():
 @app.route('/settings')
 def settings():
     if 'username' in session:
+        return render_template('settings.html')
+        '''
         if session['username'] == ADMIN_USERNAME:
             return render_template('settings.html')
         else:
             return "权限不足！"
+        '''
     else:
         return "未登录！"
 
@@ -763,6 +775,22 @@ def api_warnings():
         try:
             if int(switch.temp) >= TEMP_THRESHOLD:
                 info.append({"ip": switch.ip, "model": switch.model, "warning": "heat", "temp": switch.temp})
+        except:
+            pass
+        try:
+            for a in range(0, len(switch.if_name)):
+                if switch.if_in_speed[a] * 8 >= int(switch.if_speed[a]) * 1024 * 1024 * IF_SPEED_THRESHOLD and int(
+                        switch.if_speed[a]) != 0:
+                    info.append(
+                        {"ip": switch.ip, "model": switch.model, "warning": "if_in", "if_name": switch.if_name[a],
+                         "if_speed_info": str(round(switch.if_in_speed[a] / 1024 / 1024 * 8)) + "/" + switch.if_speed[
+                             a]})
+                if switch.if_out_speed[a] * 8 >= int(switch.if_speed[a]) * 1024 * 1024 * IF_SPEED_THRESHOLD and int(
+                        switch.if_speed[a]) != 0:
+                    info.append(
+                        {"ip": switch.ip, "model": switch.model, "warning": "if_out", "if_name": switch.if_name[a],
+                         "if_speed_info": str(round(switch.if_out_speed[a] / 1024 / 1024 * 8)) + "/" + switch.if_speed[
+                             a]})
         except:
             pass
     return json.dumps(info, ensure_ascii=False)
@@ -854,8 +882,8 @@ def weixin_stat_time():
     global WEIXIN_STAT_TIME_H
     global WEIXIN_STAT_TIME_M
     if 'username' in session:
-        if session['username'] == ADMIN_USERNAME:
-            if request.method == 'POST':
+        if request.method == 'POST':
+            if session['username'] == ADMIN_USERNAME:
                 # 写入到Config.py
                 with open('Config.py', mode='r', encoding='utf-8') as f:
                     config = f.read()
@@ -868,10 +896,12 @@ def weixin_stat_time():
                     f.write(config)
                 WEIXIN_STAT_TIME_H = int(request.form['time_h'])
                 WEIXIN_STAT_TIME_M = int(request.form['time_m'])
-            info = {"time_h": WEIXIN_STAT_TIME_H, "time_m": WEIXIN_STAT_TIME_M}
-            return json.dumps(info, ensure_ascii=False)
-        else:
-            return "权限不足！"
+            else:
+                info = {"error_code": 1, "description": "权限不足！"}
+                return json.dumps(info, ensure_ascii=False)
+        # 返回当前数值
+        info = {"error_code": 0, "time_h": WEIXIN_STAT_TIME_H, "time_m": WEIXIN_STAT_TIME_M}
+        return json.dumps(info, ensure_ascii=False)
     else:
         return "未登录！"
 
@@ -882,18 +912,22 @@ def sw_reboot_time():
     global SW_REBOOT_TIME_H, SW_REBOOT_TIME_M
     if 'username' in session:
         if request.method == 'POST':
-            # 写入到Config.py
-            with open('Config.py', mode='r', encoding='utf-8') as f:
-                config = f.read()
-            config = config.replace("SW_REBOOT_TIME_H = " + str(SW_REBOOT_TIME_H),
-                                    "SW_REBOOT_TIME_H = " + request.form['time_h'])
-            config = config.replace("SW_REBOOT_TIME_M = " + str(SW_REBOOT_TIME_M),
-                                    "SW_REBOOT_TIME_H = " + request.form['time_m'])
-            with open('Config.py', mode='w', encoding='utf-8') as f:
-                f.write(config)
-            SW_REBOOT_TIME_H = int(request.form['time_h'])
-            SW_REBOOT_TIME_M = int(request.form['time_m'])
-        info = {"time_h": SW_REBOOT_TIME_H, "time_m": SW_REBOOT_TIME_M}
+            if session['username'] == ADMIN_USERNAME:
+                # 写入到Config.py
+                with open('Config.py', mode='r', encoding='utf-8') as f:
+                    config = f.read()
+                config = config.replace("SW_REBOOT_TIME_H = " + str(SW_REBOOT_TIME_H),
+                                        "SW_REBOOT_TIME_H = " + request.form['time_h'])
+                config = config.replace("SW_REBOOT_TIME_M = " + str(SW_REBOOT_TIME_M),
+                                        "SW_REBOOT_TIME_H = " + request.form['time_m'])
+                with open('Config.py', mode='w', encoding='utf-8') as f:
+                    f.write(config)
+                SW_REBOOT_TIME_H = int(request.form['time_h'])
+                SW_REBOOT_TIME_M = int(request.form['time_m'])
+            else:
+                info = {"error_code": 1, "description": "权限不足！"}
+                return json.dumps(info, ensure_ascii=False)
+        info = {"error_code": 0, "time_h": SW_REBOOT_TIME_H, "time_m": SW_REBOOT_TIME_M}
         return json.dumps(info, ensure_ascii=False)
     else:
         return "未登录！"
@@ -917,8 +951,11 @@ def reboot_sw():
 @app.route('/api/tools/send_wx_stat')  # 这个应该不用限制管理员权限吧……？
 def send_wx_stat():
     if 'username' in session:
-        send_weixin_stat()
-        return "发送成功！"
+        if session['username'] == ADMIN_USERNAME:
+            send_weixin_stat()
+            return "发送成功！"
+        else:
+            return "权限不足！"
     else:
         return "未登录！"
 
@@ -971,7 +1008,48 @@ def api_server_info():
         return "未登录！"
 
 
-# API，返回CPU状态未知的交换机（测试用）
+# API，返回日志
+@app.route('/api/log')
+def api_log():
+    if 'username' in session:
+        if session['username'] == ADMIN_USERNAME:
+            with open("log.txt", "r", encoding='utf-8') as f:
+                log = f.read()
+            return Response(data_stream(log), mimetype='text/plain')
+        else:
+            return "权限不足！"
+    else:
+        return "未登录！"
+
+
+# API，清除日志
+@app.route('/api/clean_log')
+def api_clean_log():
+    if 'username' in session:
+        if session['username'] == ADMIN_USERNAME:
+            os.remove("log.txt")
+            os.mknod("log.txt")
+            return "清除成功！"
+        else:
+            return "权限不足！"
+    else:
+        return "未登录！"
+
+
+# API，发送微信全体消息
+@app.route('/api/send_weixin_msg', methods=['POST'])
+def api_send_weixin_msg():
+    if 'username' in session:
+        if session['username'] == ADMIN_USERNAME:
+            send_weixin_msg(request.form['msg'], 6)
+            return "发送成功！"
+        else:
+            return "权限不足！"
+    else:
+        return "未登录！"
+
+
+# （测试用）API，返回CPU状态未知的交换机
 @app.route('/api/cpu_unknown')
 def api_snmp_warning():
     info = []
@@ -981,8 +1059,8 @@ def api_snmp_warning():
     return json.dumps(info, ensure_ascii=False)
 
 
-# 测试用
-@app.route('/api/test')
+# （测试用）返回登录用户名
+@app.route('/api/username')
 def api_test():
     if 'username' in session:
         print(session)

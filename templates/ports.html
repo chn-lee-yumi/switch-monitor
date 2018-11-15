@@ -17,6 +17,9 @@
     <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
     <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
     <![endif]-->
+
+    <link href="/static/global.css" rel="stylesheet">
+
     <script>
         $(document).ready(function(){
             $.getJSON("/api/ports",function(data){
@@ -33,12 +36,12 @@
 
     <title>广工大交换机监控</title>
 </head>
-<body>
+<body background="/static/bg.jpg">
 
 </body>
 </html>
 
-<div class="container-fluid">
+<div class="container-fluid panel panel-default panel-body">
     <div class="header clearfix">
         <nav>
             <ul class="nav nav-pills pull-right">
@@ -75,61 +78,7 @@
         </div>
     </div>
 
-
 </div>
 
 </body>
 </html>
-
-<style type="text/css">
-
-body {
-  padding-top: 20px;
-  padding-bottom: 20px;
-}
-
-.header,
-.marketing,
-.footer {
-  padding-right: 15px;
-  padding-left: 15px;
-}
-
-
-.header {
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e5e5e5;
-}
-
-.header h3 {
-  margin-top: 0;
-  margin-bottom: 0;
-  line-height: 40px;
-}
-
-
-.footer {
-  padding-top: 19px;
-  color: #777;
-  border-top: 1px solid #e5e5e5;
-}
-
-.container-narrow > hr {
-  margin: 30px 0;
-}
-
-/* Responsive: Portrait tablets and up */
-@media screen and (min-width: 768px) {
-  /* Remove the padding we set earlier */
-  .header,
-  .footer {
-    padding-right: 0;
-    padding-left: 0;
-  }
-  /* Space out the masthead */
-  .header {
-    margin-bottom: 30px;
-  }
-}
-
-</style>

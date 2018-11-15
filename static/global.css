@@ -1,0 +1,19 @@
+body {
+  padding-top: 10px;
+  padding-bottom: 0px;
+  padding-right: 5px;
+  padding-left: 5px;
+  background-attachment:fixed;
+  background-size:cover;
+  opacity:0.925;
+}
+
+/* Responsive: Portrait tablets and up */
+@media screen and (min-width: 768px) {
+  body {
+      padding-top: 20px;
+      padding-bottom: 10px;
+      padding-right: 12%;
+      padding-left: 12%;
+    }
+}

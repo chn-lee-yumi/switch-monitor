@@ -18,6 +18,9 @@
     <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
     <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
     <![endif]-->
+
+    <link href="/static/global.css" rel="stylesheet">
+
     <script>
         function formatSeconds(value) {
             var theTime = parseInt(value)/100;// 秒
@@ -52,7 +55,9 @@
             // parameter cannot be found
             return "";
         }
-        var ip=getQueryStr("ip");
+
+        var ip=getQueryStr("ip").split("#")[0];
+        var id = getQueryStr("ip").split("#")[1];
 
         $(document).ready(function(){
             $("#ip").text(ip);
@@ -147,7 +152,7 @@
                 //up_time_string=data["if_uptime"][sw].split(':');
                 //data["if_uptime"][sw]=up_time_string[0]+"天"+up_time_string[1]+"小时"+up_time_string[2]+"分"+parseInt(up_time_string[3])+"秒";
                 data["if_uptime"][sw]=formatSeconds(data["if_uptime"][sw]);
-                table_html+="<tr><td>"+data["if_name"][sw]+"</td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+data["if_speed"][sw]+"</td><td>";
+                table_html+="<tr><td><a id='"+data["if_name"][sw]+"' href='#"+data["if_name"][sw]+"'>"+data["if_name"][sw]+"</a></td><td>"+data["if_descr"][sw]+"</td><td>"+if_status+"</td><td>"+data["if_uptime"][sw]+"</td><td>"+data["if_ip"][sw]+"</td><td>"+data["if_speed"][sw]+"</td><td>";
                 if(speed_multiple==1 || speed_multiple==8){
                     table_html+=(data["if_in"][sw]*all_multiple)+"</td><td>"+(data["if_out"][sw]*all_multiple)+"</td><td>"+(data["if_in_speed"][sw]*speed_multiple)+"</td><td>"+(data["if_out_speed"][sw]*speed_multiple)+"</td></tr>";
                 }else{
@@ -208,7 +213,7 @@
                     dataZoom: [
                         {
                             type: 'slider',
-                            start: 85,
+                            start: 85.7,
                             end: 100
                         },
                         {
@@ -265,75 +270,75 @@
         };
 
 
+
     </script>
 
     <title>广工大交换机监控</title>
 
 </head>
 
-<body>
+<body background="/static/bg.jpg">
 
-<div class="container-fluid">
-    <div class="row">
-        <h2 class="form-search-heading">设备详细信息</h2>
-    </div>
+<div class="container-fluid panel panel-default panel-body">
 
-    <div class="row">
-        <h3 id="ip"></h3>
-    </div>
+    <div class="panel panel-body">
 
-    <div class="row">
-        <div class="col-sm-12 col-xm-12">
-            <div id="chart_history" style="width:100%;height:250px;float:left;"></div>
+        <div class="row">
+            <h2 class="form-search-heading">设备详细信息</h2>
+        </div>
+
+        <div class="row">
+            <h3 id="ip"></h3>
+        </div>
+
+        <div class="row">
+            <div class="col-sm-12 col-xm-12">
+                <div id="chart_history" style="width:100%;height:250px;float:left;"></div>
+            </div>
+        </div>
+
+        <div class="row">
+            <h4><span>速率单位：</span>
+                <select name="unit" class="input-sm" id="unit_selected">
+                    <option value="Gbps">Gbps</option>
+                    <option value="Mbps" selected="selected">Mbps</option>
+                    <option value="Kbps">Kbps</option>
+                    <option value="bps">bps</option>
+                    <option value="GB/s">GB/s</option>
+                    <option value="MB/s">MB/s</option>
+                    <option value="KB/s">KB/s</option>
+                    <option value="Byte/s">Byte/s</option>
+                </select>
+                <span> 页面自动更新间隔：1分钟</span>
+            </h4>
+        </div>
+
+        <div class="row">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th>端口</th>
+                        <th>描述</th>
+                        <th>状态</th>
+                        <th>Uptime</th>
+                        <th>IP / Mask</th>
+                        <th>端口带宽(Mbps)</th>
+                        <th id="in_all">入方向总流量</th>
+                        <th id="out_all">出方向总流量</th>
+                        <th id="in_speed">入方向流量速率</th>
+                        <th id="out_speed">出方向流量速率</th>
+                    </tr>
+                    </thead>
+                    <tbody id="switch_info_tbody">
+
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <div class="row">
-        <h4><span>速率单位：</span>
-            <select name="unit" class="input-sm" id="unit_selected">
-                <option value="Gbps">Gbps</option>
-                <option value="Mbps" selected="selected">Mbps</option>
-                <option value="Kbps">Kbps</option>
-                <option value="bps">bps</option>
-                <option value="GB/s">GB/s</option>
-                <option value="MB/s">MB/s</option>
-                <option value="KB/s">KB/s</option>
-                <option value="Byte/s">Byte/s</option>
-            </select>
-            <span> 页面自动更新间隔：1分钟</span>
-        </h4>
-    </div>
-
-    <div class="row">
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                <tr>
-                    <th>端口</th>
-                    <th>描述</th>
-                    <th>状态</th>
-                    <th>Uptime</th>
-                    <th>IP / Mask</th>
-                    <th>端口带宽(Mbps)</th>
-                    <th id="in_all">入方向总流量</th>
-                    <th id="out_all">出方向总流量</th>
-                    <th id="in_speed">入方向流量速率</th>
-                    <th id="out_speed">出方向流量速率</th>
-                </tr>
-                </thead>
-                <tbody id="switch_info_tbody">
-
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 
 </body>
 </html>
-<style type="text/css">
-.container-fluid {
-  margin: 5px 5px 30px 30px;
-}
-
-</style>

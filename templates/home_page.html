@@ -19,6 +19,7 @@
     <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
     <![endif]-->
 
+    <link href="/static/global.css" rel="stylesheet">
 
     <script>
         var chart_down_time;
@@ -47,22 +48,32 @@
                 mem_overload_num=0;
                 heat_html="";
                 heat_num=0;
+                if_html="";
+                if_num=0;
                 for(var sw in data){
                     if(data[sw].warning=="devices_down"){
                         devices_down_num+=1;
-                        devices_down_html+="<p><a href='/devices?ip="+data[sw].ip+"'>"+data[sw].ip+"</a>（"+data[sw].model+"）  掉线时间："+getLocalTime(data[sw].down_time)+"</p>";
+                        devices_down_html+="<p><a href='/devices?ip="+data[sw].ip+"' target='_blank'>"+data[sw].ip+"</a>（"+data[sw].model+"）  掉线时间："+getLocalTime(data[sw].down_time)+"</p>";
                     }
                     if(data[sw].warning=="cpu_overload"){
                         cpu_overload_num+=1;
-                        cpu_overload_html+="<p><a href='/devices?ip="+data[sw].ip+"'>"+data[sw].ip+"</a>（"+data[sw].model+"）  CPU使用率："+data[sw].cpu_load+"</p>";
+                        cpu_overload_html+="<p><a href='/devices?ip="+data[sw].ip+"' target='_blank'>"+data[sw].ip+"</a>（"+data[sw].model+"）  CPU使用率："+data[sw].cpu_load+"</p>";
                     }
                     if(data[sw].warning=="mem_overload"){
                         mem_overload_num+=1;
-                        mem_overload_html+="<p><a href='/devices?ip="+data[sw].ip+"'>"+data[sw].ip+"</a>（"+data[sw].model+"）  内存使用率："+data[sw].mem_used+"</p>";
+                        mem_overload_html+="<p><a href='/devices?ip="+data[sw].ip+"' target='_blank'>"+data[sw].ip+"</a>（"+data[sw].model+"）  内存使用率："+data[sw].mem_used+"</p>";
                     }
                     if(data[sw].warning=="heat"){
                         heat_num+=1;
-                        heat_html+="<p><a href='/devices?ip="+data[sw].ip+"'>"+data[sw].ip+"</a>（"+data[sw].model+"）  温度："+data[sw].temp+"</p>";
+                        heat_html+="<p><a href='/devices?ip="+data[sw].ip+"' target='_blank'>"+data[sw].ip+"</a>（"+data[sw].model+"）  温度："+data[sw].temp+"</p>";
+                    }
+                    if(data[sw].warning=="if_in"){//TODO:页面锚点失效的问题
+                        if_num+=1;
+                        if_html+="<p><a href='/devices?ip="+data[sw].ip+"#"+data[sw].if_name+"' target='_blank'>"+data[sw].ip+"</a>（"+data[sw].model+"）  "+data[sw].if_name+"  入流量："+data[sw].if_speed_info+"Mbps</p>";
+                    }
+                    if(data[sw].warning=="if_out"){
+                        if_num+=1;
+                        if_html+="<p><a href='/devices?ip="+data[sw].ip+"#"+data[sw].if_name+"' target='_blank'>"+data[sw].ip+"</a>（"+data[sw].model+"）  "+data[sw].if_name+"  出流量："+data[sw].if_speed_info+"Mbps</p>";
                     }
                 }
                 if(devices_down_num!=0){
@@ -77,7 +88,10 @@
                 if(heat_num!=0){
                     heat_html="<p><strong>"+heat_num+"台设备温度过高。</strong></p>"+heat_html;
                 }
-                warnings_html=devices_down_html+cpu_overload_html+mem_overload_html+heat_html;
+                if(if_num!=0){
+                    if_html="<p><strong>"+if_num+"个端口流量过大。</strong></p>"+if_html;
+                }
+                warnings_html=devices_down_html+cpu_overload_html+mem_overload_html+heat_html+if_html;
                 if(warnings_html==""){
                     $("#warnings-div").attr("class","alert alert-success");
                     $("#warnings-div").html("<p></strong>所有设备正常！</strong></p>");
@@ -390,19 +404,15 @@
             return Y+M+D+h+m+s;
         }
 
-
-
-
-
     </script>
-
     <title>广工大交换机监控</title>
 
 </head>
-<body>
 
-<div class="container-fluid">
-    <div class="header clearfix">
+<body background="/static/bg.jpg">
+
+<div class="container-fluid panel panel-default panel-body">
+    <div class="header clearfix"><!--TODO：导航栏优化-->
         <nav>
             <ul class="nav nav-pills pull-right">
                 <li class="active"><a href="/">首页</a></li>
@@ -446,62 +456,30 @@
             </div>
         </div>
     </div>
-
-    <footer class="footer">
-        <p>© 2017 学生宿舍交换机监控 - 广东工业大学“数字校园”科技项目.</p>
-    </footer>
 </div>
 
 </body>
 </html>
+<!--现在改为<link href="/static/global.css" rel="stylesheet">
 <style type="text/css">
-
 body {
-  padding-top: 20px;
-  padding-bottom: 20px;
-}
-
-.header,
-.marketing,
-.footer {
-  padding-right: 15px;
-  padding-left: 15px;
-}
-
-
-.header {
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e5e5e5;
-}
-
-.header h3 {
-  margin-top: 0;
-  margin-bottom: 0;
-  line-height: 40px;
-}
-
-
-.footer {
-  padding-top: 19px;
-  color: #777;
-  border-top: 1px solid #e5e5e5;
-}
-
-.container-narrow > hr {
-  margin: 30px 0;
+  padding-top: 10px;
+  padding-bottom: 0px;
+  padding-right: 5px;
+  padding-left: 5px;
+  background-attachment:fixed;
+  background-size:cover;
+  opacity:0.925;
 }
 
 /* Responsive: Portrait tablets and up */
 @media screen and (min-width: 768px) {
-  /* Remove the padding we set earlier */
-  .header,
-  .footer {
-    padding-right: 0;
-    padding-left: 0;
-  }
-  /* Space out the masthead */
-  .header {
-    margin-bottom: 30px;
-  }
+  body {
+      padding-top: 20px;
+      padding-bottom: 10px;
+      padding-right: 12%;
+      padding-left: 12%;
+    }
 }
 </style>
+-->

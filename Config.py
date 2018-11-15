@@ -13,7 +13,7 @@ SCAN_THREADS = 20  # 每个扫描进程的扫描线程数
 SCAN_PROCESS = 4  # 扫描进程数
 
 # =============监控参数=============
-SEND_MSG_DELAY = 3  # 微信通知的延迟，分钟
+SEND_MSG_DELAY = 5  # 微信通知的延迟，分钟
 WEIXIN_STAT_TIME_H = 18  # 发送微信统计的时
 WEIXIN_STAT_TIME_M = 0  # 发送微信统计的分
 SW_REBOOT_TIME_H = 4  # 自动重启交换机的时
@@ -21,6 +21,7 @@ SW_REBOOT_TIME_M = 0  # 自动重启交换机的分
 CPU_THRESHOLD = 80  # CPU过载阈值
 MEM_THRESHOLD = 80  # 内存过高阈值
 TEMP_THRESHOLD = 60  # 温度过高阈值
+IF_SPEED_THRESHOLD = 0.8  # 端口流量阈值
 DATA_RECORD_SAVED_DAYS = 7  # 历史记录保留天数
 SCAN_REBOOT_HOURS = 6  # 扫描进程重启时间间隔，小时。参考：使用lib模式，8G内存的机器需要8小时重启一次。
 

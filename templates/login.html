@@ -19,19 +19,22 @@
     <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
     <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
     <![endif]-->
+
+    <link href="/static/global.css" rel="stylesheet">
+
 </head>
 
-<body>
+<body background="/static/bg.jpg">
 
 <div class="container">
 
-    <form class="form-signin" method="post">
+    <form class="form-signin panel panel-default panel-body" method="post">
         <h2 class="form-signin-heading">请登录</h2>
         <label for="inputUsername" class="sr-only">用户名</label>
         <input type="text" id="inputUsername" class="form-control" placeholder="用户名" name="username" required autofocus>
         <label for="inputPassword" class="sr-only">密码</label>
         <input type="password" id="inputPassword" class="form-control" placeholder="密码" name="password" required>
-        <p>{{info}}</p>
+        <p>{{info}}</p><!--注：这里还是依赖python，如果可以的话，去掉这个，用别的方式来说明登录失败-->
         <button class="btn btn-lg btn-primary btn-block" type="submit">登录</button>
     </form>
 
