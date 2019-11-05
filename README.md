@@ -176,3 +176,23 @@ nginx -s reload
 主页
 
 ![index.png](screenshot/index.png)
+
+设备列表
+
+![devices.png](screenshot/devices.png)
+
+设备页面
+
+![device.png](screenshot/device.png)
+
+端口列表
+
+![ports.png](screenshot/ports.png)
+
+端口页面
+
+![port.png](screenshot/port.png)
+
+设置
+
+![settings.png](screenshot/settings.png)
