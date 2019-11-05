@@ -166,3 +166,13 @@ nginx -s reload
   - 修复一些小BUG
 - v5.0.0:
   - 重构代码。
+
+# 屏幕截图
+
+登陆页面
+
+![login.png](screenshot/login.png)
+
+主页
+
+![index.png](screenshot/index.png)
